@@ -21,6 +21,7 @@ from pixelasset.config import (
     validate_schema,
 )
 from pixelasset.generator import get_generator
+from pixelasset.manifest import register, unregister
 from pixelasset.paths import ProjectPaths
 from pixelasset.pixelops import (
     nearest_neighbor_scale,
@@ -683,11 +684,13 @@ def review_rel(ctx: BuildContext) -> str:
 def stage_production(ctx: BuildContext) -> StageResult:
     review = ctx.review_record or read_review(ctx.paths, ctx.asset_id)
     if (ctx.validation or {}).get("status") != "PASSED":
+        unregister(ctx.paths, ctx.asset_id)
         return StageResult(
             STATUS_FAILED,
             reason="failed gates never promote to production/",
         )
     if not review or review.get("status") != "approved":
+        unregister(ctx.paths, ctx.asset_id)
         return StageResult(
             STATUS_FAILED,
             reason=REVIEW_PENDING,
@@ -718,6 +721,11 @@ def stage_production(ctx: BuildContext) -> StageResult:
         (prod / "reproducibility.json").write_text(
             repro_src.read_text(encoding="utf-8"), encoding="utf-8"
         )
+    # Announce it, so a consumer can enumerate production/ without guessing
+    # names. Only on the promotion path: a held-back asset must not appear.
+    if meta_src.is_file():
+        register(ctx.paths, json.loads(meta_src.read_text(encoding="utf-8")))
+
     artifacts = [
         str((prod / f"{ctx.asset_id}.png").relative_to(ctx.paths.root)),
         str((prod / "spritesheet.png").relative_to(ctx.paths.root)),

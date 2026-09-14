@@ -259,6 +259,7 @@ def metadata(asset: Asset, style_version: str = "0.1.0",
         "family": "horse",
         "variant": asset.coat,
         "category": "character",
+        "mode": asset.mode,
         "frame_size": [asset.cell[0], asset.cell[1]],
         "frame_count": sum(len(c.frames) for c in asset.clips),
         "spritesheet": {
@@ -295,6 +296,7 @@ def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> lis
     import yaml
 
     from .config import load_schema, validate_schema
+    from .manifest import register
 
     pack = yaml.safe_load(pack_path.read_text(encoding="utf-8"))
     root = paths.root / pack["pack"]["root"]
@@ -325,6 +327,7 @@ def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> lis
             prod.mkdir(parents=True, exist_ok=True)
             shutil.copy2(work / "spritesheet.png", prod / "spritesheet.png")
             (prod / "metadata.json").write_text(blob, encoding="utf-8")
+            register(paths, meta)
             results.append(meta)
     return results
 
@@ -352,15 +355,6 @@ def main(argv: list[str] | None = None) -> int:
               f"  {len(meta['animations']):2d} clips  {meta['frame_count']:3d} frames"
               f"  sheet {meta['spritesheet']['columns']}x{meta['spritesheet']['rows']}")
 
-    index = {
-        "pipeline_version": __version__,
-        "assets": [{"id": m["id"], "variant": m["variant"],
-                    "label": m["name"], "mode": m["id"].rsplit("_", 1)[-1]}
-                   for m in metas],
-    }
-    if not args.assets:
-        out = paths.assets_dir / "production" / "index.json"
-        out.write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
     print(f"\n{len(metas)} assets ingested")
     return 0
 

@@ -30,6 +30,11 @@
     "category": {
       "type": "string"
     },
+    "mode": {
+      "type": "string",
+      "minLength": 1,
+      "description": "How the subject is configured \u2014 for the horse family, `ride` (with a rider) or `lead` (with a handler on a rope). Distinct from `variant`, which is the coat. Omit for an asset with only one configuration; a consumer uses its presence to tell a playable asset from a prop."
+    },
     "frame_size": {
       "type": "array",
       "minItems": 2,
