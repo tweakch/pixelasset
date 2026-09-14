@@ -1,15 +1,31 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pixelasset.local/schemas/palette.schema.json",
-  "title": "Pixelasset palette (role → RGB)",
+  "title": "Pixelasset palette (role \u2192 RGB)",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "version", "tile_unit", "roles"],
+  "required": [
+    "name",
+    "version",
+    "tile_unit",
+    "roles"
+  ],
   "properties": {
-    "name": { "type": "string", "minLength": 1 },
-    "version": { "type": "string", "minLength": 1 },
-    "tile_unit": { "type": "integer", "minimum": 1 },
-    "description": { "type": "string" },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tile_unit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "description": {
+      "type": "string"
+    },
     "roles": {
       "type": "object",
       "minProperties": 1,
@@ -17,7 +33,11 @@
         "type": "array",
         "minItems": 3,
         "maxItems": 3,
-        "items": { "type": "integer", "minimum": 0, "maximum": 255 }
+        "items": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
       },
       "required": [
         "OUTLINE",
@@ -28,6 +48,34 @@
         "HIGHLIGHT",
         "ACCENT"
       ]
+    },
+    "coats": {
+      "type": "object",
+      "description": "Named coat ramps. A coat is a colour variant of the SAME geometry, so it belongs here rather than in its own palette file: \u00a723 requires variants to share a palette, and a palette-per-coat would version the coat instead of the style in the \u00a719 record. A ramp replaces `roles` wholesale; role names never change, so role-aware mapping (\u00a78) and palette validation are untouched.",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "required": [
+          "OUTLINE",
+          "SHADOW_DARK",
+          "SHADOW",
+          "BASE",
+          "LIGHT",
+          "HIGHLIGHT",
+          "ACCENT"
+        ]
+      }
     }
   }
 }

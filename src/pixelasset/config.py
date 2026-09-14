@@ -71,11 +71,30 @@ def load_style_bible(paths: ProjectPaths) -> dict[str, Any]:
     return data
 
 
-def load_palette(paths: ProjectPaths, name: str) -> dict[str, Any]:
+def load_palette(
+    paths: ProjectPaths, name: str, coat: str | None = None
+) -> dict[str, Any]:
+    """Load a palette, optionally resolving `roles` to a named coat ramp.
+
+    The ramp replaces `roles` in the returned dict rather than sitting beside
+    it, so every downstream consumer — role mapping, palette validation, the
+    metadata stage — keeps reading `palette["roles"]` and needs no change.
+    """
     path = paths.palette_path(name)
     data = load_yaml(path)
     validate_schema(data, load_schema(paths, "palette"), source=str(path))
-    return data
+    if coat is None:
+        return data
+    ramps = data.get("coats") or {}
+    if coat not in ramps:
+        available = ", ".join(sorted(ramps)) or "none"
+        raise ValueError(
+            f"Palette {name!r} has no coat {coat!r} (available: {available})"
+        )
+    resolved = dict(data)
+    resolved["roles"] = ramps[coat]
+    resolved["coat"] = coat
+    return resolved
 
 
 def load_asset_spec(paths: ProjectPaths, asset_id: str) -> dict[str, Any]:
