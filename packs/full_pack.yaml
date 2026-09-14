@@ -146,6 +146,37 @@ coats:
       ride_jump: Horse_sock_black_barebackriding_jump.png
       lead: "Horse_socks_black​​_leading_blackhalter.png"
 
+# Markings: a region of the artwork, not a colour of it.
+#
+# A coat palette cannot express a marking. The same bay colour becomes a white
+# patch in one place and stays brown in another — #80472c is 63% #eeeeee and 36%
+# itself on paint_brown — and which one depends on where the pixel is. So a
+# marking needs a mask, and the pack happens to ship exactly what is needed to
+# derive one: the same geometry with and without each marking. The marking IS
+# the set of pixels where those two sheets differ.
+#
+# Each override colour is then classified by one test: does bay's palette
+# contain it? Colours it does not contain are marking ink, body-independent, and
+# by derivation never a key of a body mapping — so they pass through onto any
+# coat untouched. Colours it does contain are the artist re-shading the body at
+# a marking edge, and they go through the body mapping like any other body
+# colour. That single test is the whole of how a marking composes, and it is
+# verified: rendering bay through its own palette plus the override reproduces
+# the shipped marking sheet with zero mismatched pixels, on all three families.
+#
+# `against` must match the `from` of any rendered coat using the marking, and it
+# must be the brown one. Derived against black, the black body palette already
+# contains the marking's greys and the classification collapses — reshade jumps
+# from about 1% to about 30%. config/markings/<name>.yaml records what the
+# derivation found, as a tripwire; nothing in it is read to build the mask.
+markings:
+  socks:
+    label: Socks
+    descriptor: socks
+  paint:
+    label: Paint
+    descriptor: paint
+
 # Coats rendered by palette substitution rather than shipped by the pack.
 #
 # One geometry — the coat named in `from` — seen through another palette, so
@@ -193,3 +224,30 @@ rendered_coats:
     from: bay
     base_palette: coat_bay
     palette: coat_dun
+
+  # Any body palette x any marking — the combinatorial payoff, and the reason
+  # `marking` is a separate optional key rather than part of the palette. An
+  # entry without it is completely unchanged.
+  fox_socks:
+    label: Fox with socks
+    from: bay
+    base_palette: coat_bay
+    palette: coat_fox
+    marking: socks
+
+  dun_paint:
+    label: Dun paint
+    from: bay
+    base_palette: coat_bay
+    palette: coat_dun
+    marking: paint
+
+  # Bay's own palette plus the socks override, i.e. the pack's socks_brown
+  # reproduced through the pipeline. Kept because it is the one marked coat with
+  # a shipped ground truth to diff against.
+  bay_socks:
+    label: Bay with socks
+    from: bay
+    base_palette: coat_bay
+    palette: coat_bay
+    marking: socks

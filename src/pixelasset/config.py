@@ -17,6 +17,7 @@ SCHEMA_FILES = {
     "style_bible": "style_bible.schema.json",
     "palette": "palette.schema.json",
     "coat_palette": "coat_palette.schema.json",
+    "marking": "marking.schema.json",
     "metadata": "metadata.schema.json",
     "review": "review.schema.json",
     "stage_graph": "stage_graph.schema.json",
@@ -126,6 +127,19 @@ def load_coat_palette(paths: ProjectPaths, name: str) -> dict[str, Any]:
             f"`from` is the key space and must be distinct; only `to` may "
             f"repeat."
         )
+    return data
+
+
+def load_marking(paths: ProjectPaths, name: str) -> dict[str, Any]:
+    """Load a marking descriptor, validated.
+
+    The descriptor does not define the marking — `coat.derive_marking` does,
+    from the pack's own sheets. This is the §19 record of what that derivation
+    found, and the tests compare the two so a swapped pack is noticed.
+    """
+    path = paths.root / "config" / "markings" / f"{name}.yaml"
+    data = load_yaml(path)
+    validate_schema(data, load_schema(paths, "marking"), source=str(path))
     return data
 
 

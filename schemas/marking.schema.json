@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelasset.local/schemas/marking.schema.json",
+  "title": "Pixelasset marking (a region of the artwork, not a colour of it)",
+  "description": "A marking is the one thing a coat palette cannot express: the same source colour becomes a white patch in one place and stays brown in another, decided by position. This file is a record and a tripwire, never an input — the override mask is recomputed from the pack at ingest, because a committed override map would be the third-party artwork in another encoding. The recorded hashes and counts are asserted by the tests, so swapping the pack fails by name.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "version", "family", "derive_from", "against", "sources"],
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "minLength": 1},
+    "family": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "derive_from": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The shipped coat carrying the marking, as a key of the pack's `coats`."
+    },
+    "against": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The shipped coat it is diffed against, and the coat a marked rendered_coats entry must name in `from`. Must be the warm one: derived against black, the black body palette already contains the marking's greys, the ink/reshade classification collapses and reshade jumps from ~1% to ~30%."
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "One entry per sheet family, keyed as the pack's `sources` are. Separate because the families are separate artwork with their own ink ladders.",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "base_sheet", "base_sha256", "marking_sheet", "marking_sha256",
+          "override_pixels", "ink_pixels", "reshade_pixels", "ink"
+        ],
+        "properties": {
+          "base_sheet": {"type": "string", "minLength": 1},
+          "base_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "marking_sheet": {"type": "string", "minLength": 1},
+          "marking_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "override_pixels": {"type": "integer", "minimum": 1},
+          "ink_pixels": {"type": "integer", "minimum": 0},
+          "reshade_pixels": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Override pixels whose colour the base coat already has. Should be a low single-digit percentage of override_pixels; a large share means `against` names the wrong coat."
+          },
+          "ink": {
+            "type": "array",
+            "minItems": 1,
+            "description": "The derived ink colours, lightest first. Recorded for review and drift detection, not read to build the mask.",
+            "items": {"type": "string", "pattern": "^#[0-9a-f]{6}$"}
+          }
+        }
+      }
+    }
+  }
+}

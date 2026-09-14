@@ -1,0 +1,71 @@
+name: paint
+version: paint_v1
+family: horse
+derive_from: paint_brown
+against: bay
+description: >-
+  White body patches — a pinto pattern. Derived the same way as socks and from
+  the same pack pairing: the pixels where paint_brown differs from bay while
+  both are fully opaque, with each override colour classified by whether bay's
+  palette contains it. See config/markings/socks.yaml for the full rationale;
+  the two markings share their mechanism and most of their ink ladder.
+
+  Rendering bay's geometry with bay's own palette and this override reproduces
+  paint_brown with zero mismatched pixels wherever both sheets draw, on all
+  three families. Paint covers roughly three times the area socks does
+  (126319 px against 40297 on the leading sheets), and its jump family needs no
+  re-shading at all.
+
+  A record and a tripwire, not an input — the mask is recomputed at ingest.
+sources:
+  ride:
+    base_sheet: Horse_fullcolor_brown_barebackriding.png
+    base_sha256: 061c4da2551b5d05d7037e76efb21a239f771eb32b651616990f3a6621422cb8
+    marking_sheet: Horse_fullcolor_paint_brown_barebackriding.png
+    marking_sha256: b6887760377c51cec334dc17e0f735da06d0bd38dc9156693350ea95b680eda5
+    override_pixels: 84536
+    ink_pixels: 83617
+    reshade_pixels: 919
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#808080'
+      - '#6a6a6a'
+      - '#3b3b3b'
+      - '#262626'
+      - '#151515'
+      - '#111111'
+      - '#0a0a0a'
+  ride_jump:
+    base_sheet: Horse_fullcolor_brown_barebackriding_jump.png
+    base_sha256: 45aebf2a04882a98b92690ef4cd727c18d07f0013ee4588151e2c9754945f864
+    marking_sheet: Horse_paint_brown_barebackriding_jump.png
+    marking_sha256: 43edf222bc3ddbb0f6a1a230e7be268f8b2cb4ac5bb7de620be88378dc6baa49
+    override_pixels: 35452
+    ink_pixels: 35452
+    reshade_pixels: 0
+    ink:
+      - '#eeeeee'
+      - '#808080'
+      - '#555555'
+      - '#262626'
+      - '#151515'
+      - '#260d0d'
+      - '#150808'
+  lead:
+    base_sheet: Horse_fullcolor_brown_leading_blacknhalter.png
+    base_sha256: b45cbfbc932de519fa2b388c0b9b58f64cca0c082ab52a6131e0cd4ac8d82cb6
+    marking_sheet: "Horse_paint_brown\u200b\u200b_leading_blackhalter.png"
+    marking_sha256: b5fd9f96333ad6e97b3d68ec8c3dd675c9083b7595e107cb3988cce20c903b2d
+    override_pixels: 126319
+    ink_pixels: 124720
+    reshade_pixels: 1599
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#6a6a6a'
+      - '#3b3b3b'
+      - '#262626'
+      - '#151515'
+      - '#111111'
+      - '#0a0a0a'

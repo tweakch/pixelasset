@@ -1,0 +1,101 @@
+name: socks
+version: socks_v1
+family: horse
+derive_from: socks_brown
+against: bay
+description: >-
+  White leg markings, derived rather than authored. The override is exactly the
+  set of pixels where the pack's socks_brown sheet differs from its bay sheet
+  while both are fully opaque; each override colour is then classified by
+  whether bay's palette contains it. Colours it does not contain are marking
+  ink and travel unchanged onto any body coat; colours it does are the artist
+  re-shading the body at a marking edge, and they go through the body mapping
+  like any other body colour.
+
+  Rendering bay's geometry with bay's own palette and this override reproduces
+  socks_brown with zero mismatched pixels wherever both sheets draw — on all
+  three sheet families. That round trip is what makes applying it to another
+  body trustworthy, and it is why the classifier is palette membership rather
+  than hue: an achromatic test misclassifies 2964 genuine ink pixels on the
+  jump sheets, where the artist tinted the marking's dark end warm.
+
+  This file is a record and a tripwire, not an input. Nothing in it is read to
+  build the mask — the mask is recomputed from the pack at ingest, because a
+  committed 40000-pixel override map is the third-party marking artwork in
+  another encoding, and .gitignore is explicit that only derived assets are
+  committed. If the pack is ever swapped, these hashes and counts stop matching
+  and tests/test_coat_marking.py says so by name instead of the artwork
+  changing quietly underneath a rendered coat.
+
+  `against` must name the coat a marked rendered_coats entry uses as `from`,
+  and it must be the brown one. Derived against black, the black body palette
+  already contains the marking's greys, the classification collapses and
+  reshade jumps from 1.4% to 32%. That ratio is the tripwire for a mis-wired
+  `against`.
+
+  The ink ladders differ per family because the families are separate artwork.
+  The jump ladder is shorter and warmer at its dark end; #223300 appears in the
+  socks ladders because these sheets also darken the eye by one step, which is
+  not a marking but is body-independent, so it rides along harmlessly.
+sources:
+  ride:
+    base_sheet: Horse_fullcolor_brown_barebackriding.png
+    base_sha256: 061c4da2551b5d05d7037e76efb21a239f771eb32b651616990f3a6621422cb8
+    marking_sheet: Horse_fullcolor_socks_brown_barebackriding.png
+    marking_sha256: aac9fd3741bbfdcae86d1aee761b30936438dffdc6b07ca9ca6ab34914f1dac6
+    override_pixels: 29242
+    ink_pixels: 28844
+    reshade_pixels: 398
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#6a6a6a'
+      - '#3b3b3b'
+      - '#223300'
+      - '#292929'
+      - '#262626'
+      - '#191919'
+      - '#151515'
+      - '#131313'
+      - '#0a0a0a'
+      - '#090909'
+      - '#080808'
+      - '#040404'
+  ride_jump:
+    base_sheet: Horse_fullcolor_brown_barebackriding_jump.png
+    base_sha256: 45aebf2a04882a98b92690ef4cd727c18d07f0013ee4588151e2c9754945f864
+    marking_sheet: Horse_sock_brown_barebackriding_jump.png
+    marking_sha256: 6160ecdef8a4d399a40a1bcb2cfe6724d315d8119168632d68a32f822d0e0993
+    override_pixels: 11761
+    ink_pixels: 11752
+    reshade_pixels: 9
+    ink:
+      - '#eeeeee'
+      - '#808080'
+      - '#555555'
+      - '#262626'
+      - '#151515'
+      - '#150707'
+      - '#0b0404'
+  lead:
+    base_sheet: Horse_fullcolor_brown_leading_blacknhalter.png
+    base_sha256: b45cbfbc932de519fa2b388c0b9b58f64cca0c082ab52a6131e0cd4ac8d82cb6
+    marking_sheet: "Horse_socks_brown\u200b\u200b_leading_blackhalter.png"
+    marking_sha256: 00294027e72195e593d7f1c4be5688aa92b2b876d3a2fa46a8a6d85e93eb8fad
+    override_pixels: 40297
+    ink_pixels: 38970
+    reshade_pixels: 1327
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#6a6a6a'
+      - '#3b3b3b'
+      - '#223300'
+      - '#292929'
+      - '#262626'
+      - '#191919'
+      - '#151515'
+      - '#131313'
+      - '#101010'
+      - '#0a0a0a'
+      - '#090909'

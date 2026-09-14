@@ -109,13 +109,31 @@ def decompose(sheet: np.ndarray) -> IndexedSheet:
                         hidden=hidden, hidden_palette=hidden_palette)
 
 
-def render(indexed: IndexedSheet, palette: list[RGB] | None = None) -> np.ndarray:
+def render(
+    indexed: IndexedSheet,
+    palette: list[RGB] | None = None,
+    *,
+    overlay: tuple[np.ndarray, list[RGB]] | None = None,
+) -> np.ndarray:
     """Rebuild an RGBA sheet from an index map and a palette.
 
     With `palette` omitted this is the exact inverse of `decompose`. With a
     substituted palette of the same length it is the same artwork in another
     coat — every pixel keeps its index, so shading, outline and dithering
     structure are untouched by construction.
+
+    `overlay` is a per-PIXEL override applied on top of the palette result, as
+    (index_map, colours) where index 0 means "no override" and index i means
+    colours[i-1]. It is the one thing a palette cannot express: a marking is a
+    region of the artwork rather than a colour of it, because the same source
+    colour becomes a white patch in one place and stays brown in another.
+
+    It deliberately does not live in `IndexedSheet`, which is the lossless
+    decomposition of one sheet — a marking is not part of that sheet, and
+    folding it in would give `render(decompose(x))` byte-exactness an exception
+    clause. Alpha is never read from an overlay and never written by one, and
+    overrides are clipped to pixels the sheet already draws, so a stale mask
+    cannot resurrect a transparent pixel.
     """
     pal = palette if palette is not None else indexed.palette
     if len(pal) != len(indexed.palette):
@@ -132,6 +150,22 @@ def render(indexed: IndexedSheet, palette: list[RGB] | None = None) -> np.ndarra
         lut = np.array(pal + [(0, 0, 0)], dtype=np.uint8)
         idx = np.where(transparent, len(pal), indexed.index)
         out[:, :, :3] = lut[idx]
+    if overlay is not None:
+        ov_index, ov_colours = overlay
+        if ov_index.shape != indexed.shape:
+            raise ValueError(
+                f"overlay is {ov_index.shape}, sheet is {indexed.shape}"
+            )
+        if len(ov_colours) != int(ov_index.max()):
+            raise ValueError(
+                f"overlay has {len(ov_colours)} colours but indexes up to "
+                f"{int(ov_index.max())}"
+            )
+        selected = (ov_index > 0) & ~transparent
+        olut = np.array([(0, 0, 0)] + list(ov_colours), dtype=np.uint8)
+        out[:, :, :3][selected] = olut[ov_index[selected]]
+    # Last on purpose: the hidden restore is what keeps colour under alpha==0
+    # byte-exact, so nothing above may write into those pixels.
     if indexed.hidden_palette:
         hlut = np.array(indexed.hidden_palette, dtype=np.uint8)
         out[:, :, :3] = np.where(
@@ -177,6 +211,126 @@ def to_hex(c: RGB) -> str:
 def from_hex(s: str) -> RGB:
     s = s.lstrip("#")
     return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
+
+
+# --- markings --------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Marking:
+    """A region of the artwork, derived from two sheets of one geometry.
+
+    The pack ships the same horse with and without each marking, so a marking
+    *is* the set of pixels where those two sheets differ. Each override colour
+    is then classified by one test — is it a colour the base coat has? — and
+    that single test is what makes a marking compose over any body:
+
+        ink      a colour the marking introduced. Body-independent, and by
+                 derivation never a key of a base-coat mapping, so it passes
+                 through `substitute_marking` untouched exactly like the eye.
+        reshade  a colour the base coat already has, i.e. the artist
+                 re-shading the body at a marking edge. Substituted through
+                 the body mapping exactly like the body is.
+
+    Nothing has to be tagged and nothing has to be remembered, which is the
+    whole reason to classify by palette membership rather than by hue. A
+    hue rule (achromatic = ink) misclassifies 2964 genuine ink pixels on the
+    jump sheets, where the artist tinted the marking's dark end warm.
+    """
+
+    index: np.ndarray        # uint16; 0 = no override, i = colours[i - 1]
+    colours: list[RGB]       # override colour per index, in derivation order
+    counts: list[int]        # pixel count per colour
+    ink: list[RGB]           # colours the base coat does not have
+    reshade: list[RGB]       # colours it does
+
+    @property
+    def pixels(self) -> int:
+        return sum(self.counts)
+
+    @property
+    def ink_pixels(self) -> int:
+        ink = set(self.ink)
+        return sum(n for c, n in zip(self.colours, self.counts) if c in ink)
+
+    @property
+    def reshade_pixels(self) -> int:
+        return self.pixels - self.ink_pixels
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        return self.index.shape
+
+    def ink_ladder(self) -> list[RGB]:
+        """The ink colours, lightest first — how a marking reads to a human."""
+        return sorted(self.ink, key=_luminance, reverse=True)
+
+
+def _luminance(c: RGB) -> float:
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+
+
+def derive_marking(base: np.ndarray, marking: np.ndarray) -> Marking:
+    """The marking that turns `base` into `marking`, as a per-pixel override.
+
+    Restricted to pixels fully opaque in both sheets. That is not a shortcut:
+    the marking coats carry a handful of anti-aliased edge pixels that bay does
+    not, and admitting them would put semi-transparent colour into a coat whose
+    alpha is bay's. Excluding them means a rendered marked coat carries bay's
+    alpha exactly, and bay has no semi-alpha at all — so §5's no-anti-aliasing
+    rule comes out better satisfied than the shipped sheet's.
+
+    The cost is that a rendered marked coat is not a byte reproduction of the
+    shipped one: in a few frames the shipped marking bleeds a pixel outside
+    bay's silhouette. Worst case measured is 393 px of 2.75M on the leading
+    sheets, 0.014%.
+    """
+    if base.shape != marking.shape:
+        raise ValueError(f"base is {base.shape}, marking is {marking.shape}")
+
+    both = (base[:, :, 3] == 255) & (marking[:, :, 3] == 255)
+    differs = np.any(base[:, :, :3] != marking[:, :, :3], axis=2)
+    mask = both & differs
+
+    index = np.zeros(base.shape[:2], dtype=np.uint16)
+    if not mask.any():
+        return Marking(index=index, colours=[], counts=[], ink=[], reshade=[])
+
+    px = marking[:, :, :3][mask].astype(np.uint32)
+    codes = (px[:, 0] << 16) | (px[:, 1] << 8) | px[:, 2]
+    uniq, inverse, counts = np.unique(
+        codes, return_inverse=True, return_counts=True
+    )
+    order = np.argsort(-counts, kind="stable")
+    rank = np.empty_like(order)
+    rank[order] = np.arange(len(order))
+    colours = [((int(c) >> 16) & 255, (int(c) >> 8) & 255, int(c) & 255)
+               for c in uniq[order]]
+    # +1 so that 0 stays free to mean "no override"
+    index[mask] = (rank[inverse] + 1).astype(np.uint16)
+
+    base_palette = set(decompose(base).palette)
+    return Marking(
+        index=index,
+        colours=colours,
+        counts=[int(counts[i]) for i in order],
+        ink=[c for c in colours if c not in base_palette],
+        reshade=[c for c in colours if c in base_palette],
+    )
+
+
+def substitute_marking(
+    marking: Marking, mapping: dict[RGB, RGB]
+) -> list[RGB]:
+    """Resolve a marking's override colours against a body mapping.
+
+    The same one-liner as `substitute`, for the same reason and with no second
+    code path. An ink colour is by derivation a colour the base coat does not
+    have, so it can never be a key of a mapping whose keys are the base coat's
+    palette — it passes through untouched. A reshade colour *is* a base-coat
+    colour, so it is substituted. That is the whole of how a marking composes
+    over an arbitrary coat.
+    """
+    return [mapping.get(c, c) for c in marking.colours]
 
 
 # --- correspondence --------------------------------------------------------

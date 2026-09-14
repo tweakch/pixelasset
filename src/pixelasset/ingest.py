@@ -107,7 +107,8 @@ def _anchor_for(sheets, cells, src, facing, clips_spec) -> tuple[int, int]:
 
 
 def build_asset(
-    pack: dict, root: Path, coat_id: str, mode_id: str, *, recolour=None
+    pack: dict, root: Path, coat_id: str, mode_id: str, *, recolour=None,
+    marking=None,
 ) -> Asset:
     """Build one (coat, mode) asset.
 
@@ -115,6 +116,11 @@ def build_asset(
     anything is measured. A rendered coat therefore goes through exactly the
     same detection, normalization and validation as a shipped one — it is the
     same geometry seen through another palette, not a second code path.
+
+    `marking` is an optional {source: Marking} of per-pixel overrides applied in
+    the same pass, for the part of a coat a palette cannot express. Both are
+    applied before measurement for the same reason, and neither touches alpha,
+    so a marked rendered coat is still the same geometry.
     """
     coat = pack["coats"][coat_id]
     mode = pack["modes"][mode_id]
@@ -128,10 +134,18 @@ def build_asset(
             raise FileNotFoundError(f"{coat_id}/{src}: {path}")
         sources[src] = path
         sheet = detect.load_rgba(path)
-        if recolour:
+        overlay = None
+        if marking and src in marking:
+            from .coat import substitute_marking
+            overlay = (
+                marking[src].index,
+                substitute_marking(marking[src], recolour or {}),
+            )
+        if recolour or overlay:
             from .coat import decompose, render, substitute
             indexed = decompose(sheet)
-            sheet = render(indexed, substitute(indexed, recolour))
+            palette = substitute(indexed, recolour) if recolour else None
+            sheet = render(indexed, palette, overlay=overlay)
         sheets[src] = sheet
         a = detect.alpha(sheets[src])
         declared = spec.get("cell", "auto")
@@ -314,6 +328,73 @@ def _recolour_for(paths, spec: dict) -> dict:
     )
 
 
+_MARKINGS: dict[tuple[str, str], dict] = {}
+
+
+def _marking_for(pack: dict, root: Path, paths, spec: dict) -> dict | None:
+    """Per-source overrides for a marked rendered coat, derived from the pack.
+
+    Memoised on (marking, source coat) because the derivation reads two full
+    sheets per family and every mode of every marked coat wants the same ones.
+    Cheap next to grid detection, which dominates and is already memoised on
+    alpha — and a marked coat never changes alpha, so those hits survive too.
+    """
+    name = spec.get("marking")
+    if not name:
+        return None
+
+    from .coat import derive_marking, load_sheet
+    from .config import load_marking
+
+    declared = (pack.get("markings") or {})
+    if name not in declared:
+        available = ", ".join(sorted(declared)) or "none"
+        raise ValueError(
+            f"rendered coat asks for marking {name!r}, which the pack does not "
+            f"declare (available: {available})"
+        )
+
+    key = (name, spec["from"])
+    if key in _MARKINGS:
+        return _MARKINGS[key]
+
+    descriptor = load_marking(paths, declared[name].get("descriptor", name))
+    if descriptor["against"] != spec["from"]:
+        raise ValueError(
+            f"marking {name!r} is derived against {descriptor['against']!r} but "
+            f"would be applied to {spec['from']!r}. The classification relies "
+            f"on the base coat not already containing the marking's colours, "
+            f"and it collapses against a coat that does."
+        )
+    marked = pack["coats"][descriptor["derive_from"]]
+    base = pack["coats"][descriptor["against"]]
+
+    out = {}
+    for src, src_spec in pack["sources"].items():
+        folder = root / src_spec["dir"]
+        derived = derive_marking(
+            load_sheet(folder / base["files"][src]),
+            load_sheet(folder / marked["files"][src]),
+        )
+        if not derived.pixels:
+            raise ValueError(
+                f"marking {name!r}/{src}: the two sheets are identical, so the "
+                f"marking would be a silent no-op"
+            )
+        share = derived.reshade_pixels / derived.pixels
+        if share >= 0.05:
+            raise ValueError(
+                f"marking {name!r}/{src}: {share * 100:.1f}% of the override is "
+                f"re-shading rather than ink. Above a few percent that means "
+                f"`against` names the wrong coat — the base coat already has "
+                f"the marking's colours and the classification has collapsed."
+            )
+        out[src] = derived
+
+    _MARKINGS[key] = out
+    return out
+
+
 def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> list[dict]:
     """Build every (coat, mode) asset described by a pack file.
 
@@ -333,13 +414,14 @@ def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> lis
     root = paths.root / pack["pack"]["root"]
     schema = load_schema(paths, "metadata")
 
-    # (coat_id, label, source_coat, recolour-or-None)
-    jobs: list[tuple[str, str, str, dict | None]] = [
-        (c, pack["coats"][c]["label"], c, None) for c in pack["coats"]
+    # (coat_id, label, source_coat, recolour-or-None, marking-or-None)
+    jobs: list[tuple[str, str, str, dict | None, dict | None]] = [
+        (c, pack["coats"][c]["label"], c, None, None) for c in pack["coats"]
     ]
     for name, spec in (pack.get("rendered_coats") or {}).items():
         jobs.append((name, spec.get("label", name.title()), spec["from"],
-                     _recolour_for(paths, spec)))
+                     _recolour_for(paths, spec),
+                     _marking_for(pack, root, paths, spec)))
 
     # Asset ids, manifest entries and the game's coat cycle are all keyed on the
     # coat id (game/sprites.js groups the production index by `variant`), so a
@@ -347,7 +429,7 @@ def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> lis
     # quietly replace it and drop one coat from the cycle. Rendered black and
     # white are named apart for exactly this reason; fail loudly if that slips.
     seen: dict[str, str] = {}
-    for coat_id, _label, source_coat, _recolour in jobs:
+    for coat_id, _label, source_coat, _recolour, _marking in jobs:
         if coat_id in seen:
             raise ValueError(
                 f"{pack_path.name}: coat id {coat_id!r} is declared twice "
@@ -358,12 +440,13 @@ def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> lis
         seen[coat_id] = source_coat
 
     results = []
-    for coat, label, source_coat, recolour in jobs:
+    for coat, label, source_coat, recolour, marking in jobs:
         for mode in pack["modes"]:
             asset_id = f"horse_{coat}_{mode}"
             if only and asset_id not in only and coat not in only and mode not in only:
                 continue
-            asset = build_asset(pack, root, source_coat, mode, recolour=recolour)
+            asset = build_asset(pack, root, source_coat, mode,
+                                recolour=recolour, marking=marking)
             asset.id = asset_id
             asset.coat = coat
             asset.coat_label = label
