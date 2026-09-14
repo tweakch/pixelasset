@@ -338,8 +338,10 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         prog="python -m pixelasset.ingest",
         description="Normalize a third-party sprite pack into project assets.")
-    ap.add_argument("pack", nargs="?", default="packs/full_pack.yaml", type=Path)
+    # `pack` is a flag, not a positional: with both positional, `ingest bay`
+    # bound "bay" to the pack path and died looking for a file called bay.
     ap.add_argument("assets", nargs="*", help="asset id, coat, or mode")
+    ap.add_argument("--pack", type=Path, default=Path("packs/full_pack.yaml"))
     ap.add_argument("--root", type=Path, default=Path.cwd())
     args = ap.parse_args(argv)
 
