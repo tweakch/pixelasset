@@ -10,6 +10,7 @@ from typing import Any, Callable
 
 from PIL import Image
 
+from pixelasset.animation import idle_clip, idle_frame_count, reject_walk
 from pixelasset.config import (
     dump_json,
     load_asset_spec,
@@ -23,16 +24,19 @@ from pixelasset.generator import get_generator
 from pixelasset.paths import ProjectPaths
 from pixelasset.pixelops import (
     nearest_neighbor_scale,
+    pack_spritesheet,
     palette_rgb_set,
     rgb_tuple,
+    save_animation_gif,
     silhouette_mask,
     snap_binary_alpha,
 )
 from pixelasset.reproducibility import build_record
-from pixelasset.review import read_review, write_review
+from pixelasset.review import read_review, review_gates_for, write_review
 from pixelasset.validation import (
     REVIEW_PENDING,
     STAGE_BLOCKED,
+    check_frame_consistency,
     merge_results,
     validate_frame,
 )
@@ -350,20 +354,74 @@ def stage_animation_construction(ctx: BuildContext) -> StageResult:
     na = _na_for_path_c(ctx, "animation_construction")
     if na:
         return na
-    return StageResult(STATUS_FAILED, reason="animation construction not in Slice 1")
+    assert ctx.spec is not None and ctx.palette is not None and ctx.native is not None
+    walk = reject_walk(ctx.spec)
+    if walk:
+        return StageResult(STATUS_FAILED, reason=walk)
+    clip = idle_clip(ctx.spec)
+    if clip is None:
+        return StageResult(
+            STATUS_FAILED,
+            reason="animation.enabled requires an idle clip (Walk is out of scope)",
+        )
+    try:
+        expected = idle_frame_count(ctx.spec, ctx.style)
+    except ValueError as exc:
+        return StageResult(STATUS_FAILED, reason=str(exc))
+    generator = get_generator(ctx.spec["construction_path"])
+    frames = generator.construct_idle(ctx.native, ctx.spec, ctx.palette, ctx.style)
+    if len(frames) != expected:
+        return StageResult(
+            STATUS_FAILED,
+            reason=f"idle generator returned {len(frames)} frames, expected {expected}",
+        )
+    key_pixels = ctx.native.tobytes()
+    if frames[0].tobytes() != key_pixels:
+        return StageResult(
+            STATUS_FAILED,
+            reason="ANATOMY_DRIFT: idle frame 0 must be the key pose (do not redraw)",
+        )
+    ctx.frames = frames
+    artifacts: list[str] = []
+    for index, image in enumerate(frames):
+        path = ctx.working / "frames" / "idle" / f"{index:02d}.png"
+        _save_png(path, image)
+        artifacts.append(str(path.relative_to(ctx.paths.root)))
+    return StageResult(
+        STATUS_PASSED,
+        reason=f"{expected} idle frames from key pose + 1px shifts (no Walk)",
+        artifacts=artifacts,
+    )
 
 
 def stage_frame_consistency(ctx: BuildContext) -> StageResult:
     na = _na_for_path_c(ctx, "frame_consistency_validation")
     if na:
         return na
-    return StageResult(STATUS_FAILED, reason="frame consistency not in Slice 1")
+    assert ctx.spec is not None and ctx.palette is not None
+    frames = ctx.frames or ([ctx.native] if ctx.native is not None else [])
+    errors = check_frame_consistency(frames, ctx.spec, ctx.palette, ctx.project)
+    report = {"asset": ctx.asset_id, "errors": errors, "frame_count": len(frames)}
+    report_path = ctx.working / "frame_consistency.json"
+    dump_json(report_path, report)
+    if errors:
+        return StageResult(
+            STATUS_FAILED,
+            reason=f"{errors[0].get('code')}: {errors[0].get('message') or 'failed'}",
+            artifacts=[str(report_path.relative_to(ctx.paths.root))],
+        )
+    return StageResult(
+        STATUS_PASSED,
+        reason=f"{len(frames)} idle frames consistent (anatomy + lighting)",
+        artifacts=[str(report_path.relative_to(ctx.paths.root))],
+    )
 
 
 def stage_spritesheet(ctx: BuildContext) -> StageResult:
-    assert ctx.native is not None
-    # Single-frame sheet: the native PNG is the sheet.
-    sheet = ctx.native.copy()
+    frames = ctx.frames or ([ctx.native] if ctx.native is not None else [])
+    if not frames:
+        return StageResult(STATUS_FAILED, reason="no frames to pack")
+    sheet = pack_spritesheet(frames)
     path = ctx.working / "spritesheet.png"
     _save_png(path, sheet)
     return StageResult(STATUS_PASSED, artifacts=[str(path.relative_to(ctx.paths.root))])
@@ -389,6 +447,30 @@ def stage_metadata(ctx: BuildContext) -> StageResult:
         concept_hash=None,
         seed=ctx.project.get("generation", {}).get("seed"),
     )
+    frames = ctx.frames or ([ctx.native] if ctx.native is not None else [])
+    frame_count = len(frames) or 1
+    if ctx.spec["animation"]["enabled"]:
+        clip = idle_clip(ctx.spec) or {}
+        animations = [
+            {
+                "name": "idle",
+                "frames": frame_count,
+                "fps": float(clip.get("fps") or 4),
+                "loop": bool(clip.get("loop", True)),
+                "order": [f"idle/{index:02d}.png" for index in range(frame_count)],
+            }
+        ]
+    else:
+        animations = [
+            {
+                "name": "static",
+                "frames": 1,
+                "fps": 1,
+                "loop": False,
+                "order": ["static/00.png"],
+            }
+        ]
+        frame_count = 1
     metadata = {
         "id": ctx.spec["id"],
         "name": ctx.spec["name"],
@@ -399,16 +481,8 @@ def stage_metadata(ctx: BuildContext) -> StageResult:
             int(ctx.spec["canvas"]["width"]),
             int(ctx.spec["canvas"]["height"]),
         ],
-        "frame_count": 1,
-        "animations": [
-            {
-                "name": "static",
-                "frames": 1,
-                "fps": 1,
-                "loop": False,
-                "order": ["static/00.png"],
-            }
-        ],
+        "frame_count": frame_count,
+        "animations": animations,
         "anchors": ctx.spec["anchors"],
         "palette_name": ctx.palette["name"],
         "palette_version": ctx.palette["version"],
@@ -443,6 +517,13 @@ def stage_automated_validation(ctx: BuildContext) -> StageResult:
         for index, image in enumerate(frames)
     ]
     merged = merge_results(ctx.asset_id, results)
+    if ctx.spec.get("animation", {}).get("enabled") and len(frames) >= 2:
+        consistency = check_frame_consistency(
+            frames, ctx.spec, ctx.palette, ctx.project
+        )
+        merged["errors"].extend(consistency)
+        if merged["errors"]:
+            merged["status"] = "FAILED"
     validate_schema(merged, load_schema(ctx.paths, "validation"), source="validation")
     ctx.validation = merged
     path = ctx.working / "validation.json"
@@ -480,20 +561,31 @@ def stage_preview(ctx: BuildContext) -> StageResult:
             for xx in range(8):
                 sp[i * 8 + xx, yy] = (r, g, b, 255)
     _save_png(pal_path, swatch)
+    artifacts = [
+        str(native_path.relative_to(ctx.paths.root)),
+        str(preview_path.relative_to(ctx.paths.root)),
+        str(sil_path.relative_to(ctx.paths.root)),
+        str(pal_path.relative_to(ctx.paths.root)),
+    ]
+    if ctx.spec and ctx.spec.get("animation", {}).get("enabled") and len(ctx.frames) >= 2:
+        clip = idle_clip(ctx.spec) or {}
+        gif_path = preview_dir / "animation_preview.gif"
+        save_animation_gif(
+            gif_path,
+            ctx.frames,
+            fps=float(clip.get("fps") or 4),
+            scale=scale,
+        )
+        artifacts.append(str(gif_path.relative_to(ctx.paths.root)))
     return StageResult(
         STATUS_PASSED,
-        artifacts=[
-            str(native_path.relative_to(ctx.paths.root)),
-            str(preview_path.relative_to(ctx.paths.root)),
-            str(sil_path.relative_to(ctx.paths.root)),
-            str(pal_path.relative_to(ctx.paths.root)),
-        ],
+        artifacts=artifacts,
     )
 
 
 def stage_human_review(ctx: BuildContext) -> StageResult:
     existing = read_review(ctx.paths, ctx.asset_id)
-    gates = list(ctx.project.get("review", {}).get("high_value_gates") or ["palette", "silhouette"])
+    gates = review_gates_for(ctx.spec, ctx.project)
     validation_failed = (ctx.validation or {}).get("status") == "FAILED"
     warnings = (ctx.validation or {}).get("warnings") or []
     path_c = (ctx.spec or {}).get("construction_path") == "C"
@@ -542,7 +634,7 @@ def stage_human_review(ctx: BuildContext) -> StageResult:
             ctx.paths,
             ctx.asset_id,
             "approved",
-            reason="path_c_template_human_authored; palette+silhouette gates passed",
+            reason="path_c_template_human_authored; high-value gates passed",
             gates=gates,
         )
         ctx.review_record = record
@@ -556,7 +648,7 @@ def stage_human_review(ctx: BuildContext) -> StageResult:
         ctx.paths,
         ctx.asset_id,
         "pending",
-        reason="first/high-value review pending (palette, silhouette)",
+        reason="first/high-value review pending (palette, silhouette, anatomy)",
         gates=gates,
     )
     ctx.review_record = record
@@ -586,12 +678,20 @@ def stage_production(ctx: BuildContext) -> StageResult:
             reason=REVIEW_PENDING,
         )
     assert ctx.native is not None
+    frames = ctx.frames or [ctx.native]
     prod = ctx.paths.production_dir(ctx.asset_id)
     prod.mkdir(parents=True, exist_ok=True)
-    _save_png(prod / f"{ctx.asset_id}.png", ctx.native)
-    _save_png(prod / "spritesheet.png", ctx.native)
-    frame_path = prod / "static" / "00.png"
-    _save_png(frame_path, ctx.native)
+    _save_png(prod / f"{ctx.asset_id}.png", frames[0])
+    sheet = pack_spritesheet(frames)
+    _save_png(prod / "spritesheet.png", sheet)
+    if ctx.spec and ctx.spec.get("animation", {}).get("enabled"):
+        for index, image in enumerate(frames):
+            _save_png(prod / "idle" / f"{index:02d}.png", image)
+        frame_rel = str((prod / "idle" / "00.png").relative_to(ctx.paths.root))
+    else:
+        frame_path = prod / "static" / "00.png"
+        _save_png(frame_path, frames[0])
+        frame_rel = str(frame_path.relative_to(ctx.paths.root))
     preview_src = ctx.paths.previews_dir(ctx.asset_id) / "preview_4x.png"
     if preview_src.is_file():
         _save_png(prod / "preview_4x.png", Image.open(preview_src))
@@ -607,7 +707,7 @@ def stage_production(ctx: BuildContext) -> StageResult:
         str((prod / f"{ctx.asset_id}.png").relative_to(ctx.paths.root)),
         str((prod / "spritesheet.png").relative_to(ctx.paths.root)),
         str((prod / "metadata.json").relative_to(ctx.paths.root)),
-        str(frame_path.relative_to(ctx.paths.root)),
+        str(frame_rel),
     ]
     return StageResult(STATUS_PASSED, artifacts=artifacts)
 

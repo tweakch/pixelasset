@@ -31,19 +31,23 @@ validation:
   min_occupied_pixels: 80
   min_bbox_width: 14
   min_bbox_height: 10
+  max_anatomy_bbox_drift_px: 1
+  max_anatomy_com_drift_px: 1.5
+  max_anatomy_occupied_delta: 12
+  max_lighting_centroid_drift_px: 2
 
 review:
   high_value_gates:
     - palette
     - silhouette
-  # Path C templates are the human-authored source of truth (Slice 1).
+  # Path C templates are the human-authored source of truth.
   auto_approve_path_c: true
 
 export:
   targets: []
 
 versions:
-  pipeline: "0.1.0"
-  style: "0.1.0"
+  pipeline: "0.2.0"
+  style: "0.2.0"
   palette: palette_v0
   asset: "0.1.0"

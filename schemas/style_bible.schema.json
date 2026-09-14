@@ -36,8 +36,16 @@
         "proportion_ref": { "type": "string" },
         "perspective": { "type": "string" },
         "camera_angle": { "type": "string" },
+        "character_view": { "type": "string" },
+        "facing": { "type": "string" },
         "ground_contact": { "type": "string" },
         "max_object_dimensions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "max_character_dimensions": {
           "type": "array",
           "minItems": 2,
           "maxItems": 2,
@@ -79,6 +87,7 @@
       "required": ["name", "roles"],
       "properties": {
         "name": { "type": "string" },
+        "character": { "type": "string" },
         "roles": {
           "type": "array",
           "minItems": 1,
@@ -95,6 +104,26 @@
           "type": "object",
           "additionalProperties": {
             "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "animation": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "idle": {
+          "type": "object",
+          "properties": {
+            "min_frames": { "type": "integer", "minimum": 2 },
+            "max_frames": { "type": "integer", "maximum": 4 },
+            "max_shift_px": { "type": "integer", "minimum": 1 },
+            "key_pose": { "type": "boolean" },
+            "preserve": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "motions": { "type": "array" }
           }
         }
       }

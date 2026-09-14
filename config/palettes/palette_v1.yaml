@@ -1,0 +1,14 @@
+name: palette_v1
+version: palette_v1
+tile_unit: 16
+description: Frozen Hof equine (bay) role palette. Sampled from Wunderhof COATS.bay as feel ref — not a pixel source. Assets may only use these role RGBs.
+
+roles:
+  # Hex is documentation; RGB arrays are canonical.
+  OUTLINE: [28, 19, 12]          # #1C130C
+  SHADOW_DARK: [43, 29, 20]      # #2B1D14 mane/points/tail
+  SHADOW: [105, 68, 33]          # #694421
+  BASE: [138, 90, 43]            # #8A5A2B bay body
+  LIGHT: [166, 108, 52]          # #A66C34
+  HIGHLIGHT: [196, 137, 90]      # #C4895A
+  ACCENT: [74, 53, 36]           # #4A3524 muzzle

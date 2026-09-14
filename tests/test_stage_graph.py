@@ -40,6 +40,19 @@ def test_hay_bale_marks_path_c_not_applicable(project_copy, monkeypatch) -> None
         assert stage["status"] in {STATUS_PASSED, STATUS_NOT_APPLICABLE}
 
 
+def test_horse_bay_runs_idle_stages(project_copy, monkeypatch) -> None:
+    monkeypatch.setenv("PIXELASSET_ROOT", str(project_copy))
+    result = run_stage_graph(ProjectPaths(project_copy), "horse_bay")
+    graph = result["graph"]
+    by_id = {s["id"]: s for s in graph["stages"]}
+    assert by_id["reference_concept_generation"]["status"] == STATUS_NOT_APPLICABLE
+    assert by_id["animation_construction"]["status"] == STATUS_PASSED
+    assert by_id["frame_consistency_validation"]["status"] == STATUS_PASSED
+    pending = [s["id"] for s in graph["stages"] if s["status"] == "PENDING"]
+    assert pending == []
+    assert graph_ok(graph)
+
+
 def test_cli_concept_is_not_applicable_for_path_c(project_copy, monkeypatch) -> None:
     monkeypatch.setenv("PIXELASSET_ROOT", str(project_copy))
     rc = main(["--root", str(project_copy), "concept", "hay_bale"])

@@ -1,4 +1,4 @@
-version: "0.1.0"
+version: "0.2.0"
 name: Hof
 theme: Soft Equine Charm
 game: Wunderhof
@@ -10,15 +10,22 @@ geometry:
   character_height_tiles: 2
   object_scale_budget:
     prop_max: [24, 16]
+    character_max: [48, 32]
   proportions:
     hay_bale: oval bale with one binding band
+    horse: >-
+      Side view facing right. Head and muzzle on the right, tail on the left,
+      four legs with hoof ground contact. 48×32 native (2 tiles tall).
   proportion_ref: >-
-    Horse (later) stands on the right with ground contact. Proportion
-    reference only — not a pixel source. No live SVG swap.
+    Wunderhof horse.js SVG (viewBox 260×200, faces right, ground y≈183) is
+    proportion and feel reference only — NEVER a pixel source. No live SVG swap.
   perspective: "3/4_iso_lite"
   camera_angle: "3/4"
+  character_view: side
+  facing: right
   ground_contact: bottom_center
   max_object_dimensions: [24, 16]
+  max_character_dimensions: [48, 32]
 
 rendering:
   outline:
@@ -36,6 +43,7 @@ rendering:
 
 palette:
   name: palette_v0
+  character: palette_v1
   roles:
     - OUTLINE
     - SHADOW_DARK
@@ -44,6 +52,26 @@ palette:
     - LIGHT
     - HIGHLIGHT
     - ACCENT
+
+animation:
+  idle:
+    min_frames: 2
+    max_frames: 4
+    max_shift_px: 1
+    key_pose: true
+    preserve:
+      - hooves
+      - legs
+      - origin
+    motions:
+      - name: ear
+        frame: 1
+        dy: -1
+        cluster: 2
+      - name: tail
+        frame: 2
+        dx: -1
+        cluster: 2
 
 construction:
   path_c_template_tokens:
