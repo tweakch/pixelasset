@@ -1,4 +1,4 @@
-"""Replaceable generator interface. Slice 1 ships Path C only."""
+"""Replaceable generator interface. Path C is registered by default."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from PIL import Image
 
 
 class Generator(ABC):
-    """Swappable construction backend. No live model in Slice 1."""
+    """Swappable construction backend. No live model in this slice."""
 
     name: str
     construction_path: str
@@ -23,7 +23,19 @@ class Generator(ABC):
         *,
         template_text: str | None = None,
     ) -> Image.Image:
-        """Return a native-resolution RGBA image using palette roles only."""
+        """Return a native-resolution RGBA key pose using palette roles only."""
+
+    def construct_idle(
+        self,
+        key_frame: Image.Image,
+        spec: dict[str, Any],
+        palette: dict[str, Any],
+        style: dict[str, Any],
+    ) -> list[Image.Image]:
+        """Optional idle frames from a key pose. Default: not implemented."""
+        raise NotImplementedError(
+            f"{self.name} does not implement idle animation"
+        )
 
 
 _REGISTRY: dict[str, type[Generator]] = {}

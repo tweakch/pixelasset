@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from pathlib import Path
 
 from PIL import Image
 
@@ -117,3 +118,99 @@ def snap_binary_alpha(image: Image.Image) -> tuple[Image.Image, int]:
             repaired += 1
             pixels[x, y] = (0, 0, 0, 0) if a < 128 else (r, g, b, 255)
     return out, repaired
+
+
+def center_of_mass(image: Image.Image) -> tuple[float, float] | None:
+    pts = opaque_pixels(image)
+    if not pts:
+        return None
+    cx = sum(x for x, _, _ in pts) / len(pts)
+    cy = sum(y for _, y, _ in pts) / len(pts)
+    return (cx, cy)
+
+
+def role_centroid(
+    image: Image.Image,
+    rgbs: set[tuple[int, int, int]],
+) -> tuple[float, float] | None:
+    pts = [
+        (x, y)
+        for x, y, px in opaque_pixels(image)
+        if rgb_tuple(px) in rgbs
+    ]
+    if not pts:
+        return None
+    cx = sum(x for x, _ in pts) / len(pts)
+    cy = sum(y for _, y in pts) / len(pts)
+    return (cx, cy)
+
+
+def copy_shift(
+    image: Image.Image,
+    cells: list[tuple[int, int]],
+    dx: int,
+    dy: int,
+) -> Image.Image:
+    """Copy existing opaque pixels by (dx, dy) onto empty cells. Never invent colors."""
+    out = image.copy()
+    src = image.load()
+    dst = out.load()
+    assert src is not None and dst is not None
+    width, height = image.size
+    for x, y in cells:
+        nx, ny = x + dx, y + dy
+        if not (0 <= nx < width and 0 <= ny < height):
+            continue
+        if not is_opaque(src[x, y]):
+            continue
+        if is_opaque(dst[nx, ny]):
+            continue
+        dst[nx, ny] = src[x, y]
+    return out
+
+
+def pack_spritesheet(frames: list[Image.Image]) -> Image.Image:
+    if not frames:
+        raise ValueError("no frames to pack")
+    width, height = frames[0].size
+    sheet = Image.new("RGBA", (width * len(frames), height), (0, 0, 0, 0))
+    for index, frame in enumerate(frames):
+        if frame.size != (width, height):
+            raise ValueError("all frames must share the same size")
+        sheet.paste(frame, (index * width, 0))
+    return sheet
+
+
+def composite_on_background(
+    image: Image.Image,
+    color: tuple[int, int, int, int] = (232, 220, 200, 255),
+) -> Image.Image:
+    canvas = Image.new("RGBA", image.size, color)
+    canvas.alpha_composite(image.convert("RGBA"))
+    return canvas
+
+
+def save_animation_gif(
+    path: Path,
+    frames: list[Image.Image],
+    *,
+    fps: float,
+    scale: int,
+) -> None:
+    if not frames:
+        raise ValueError("no frames for gif")
+    duration = max(1, int(round(1000 / fps))) if fps else 250
+    scaled = [
+        nearest_neighbor_scale(composite_on_background(frame), scale).convert("P")
+        for frame in frames
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    scaled[0].save(
+        path,
+        format="GIF",
+        save_all=True,
+        append_images=scaled[1:],
+        duration=duration,
+        loop=0,
+        disposal=2,
+    )

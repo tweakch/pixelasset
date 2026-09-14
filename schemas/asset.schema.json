@@ -84,7 +84,7 @@
             "additionalProperties": false,
             "required": ["name", "frames", "fps", "loop"],
             "properties": {
-              "name": { "type": "string" },
+              "name": { "type": "string", "enum": ["idle"] },
               "frames": { "type": "integer", "minimum": 1 },
               "fps": { "type": "number", "minimum": 0 },
               "loop": { "type": "boolean" }
@@ -142,6 +142,10 @@
                 },
                 "oval": { "type": "boolean" },
                 "binding_band": { "type": "boolean" },
+                "horse": { "type": "boolean" },
+                "facing": { "type": "string" },
+                "min_hoof_clusters": { "type": "integer", "minimum": 1 },
+                "max_hoof_clusters": { "type": "integer", "minimum": 1 },
                 "max_components": { "type": "integer", "minimum": 1 }
               }
             }

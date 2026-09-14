@@ -28,6 +28,20 @@ def read_review(paths: ProjectPaths, asset_id: str) -> dict[str, Any] | None:
     return data
 
 
+def review_gates_for(
+    spec: dict[str, Any] | None,
+    project: dict[str, Any],
+) -> list[str]:
+    gates = list(
+        project.get("review", {}).get("high_value_gates") or ["palette", "silhouette"]
+    )
+    animated = bool((spec or {}).get("animation", {}).get("enabled"))
+    character = (spec or {}).get("category") == "character"
+    if (animated or character) and "anatomy" not in gates:
+        gates.append("anatomy")
+    return gates
+
+
 def write_review(
     paths: ProjectPaths,
     asset_id: str,

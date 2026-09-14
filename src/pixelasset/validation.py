@@ -8,11 +8,13 @@ from PIL import Image
 
 from pixelasset.pixelops import (
     bounding_box,
+    center_of_mass,
     connected_components,
     is_opaque,
     opaque_pixels,
     palette_rgb_set,
     rgb_tuple,
+    role_centroid,
 )
 
 # Hard-fail codes that never promote to production/.
@@ -20,12 +22,12 @@ PALETTE_VIOLATION = "PALETTE_VIOLATION"
 FRAME_SIZE_MISMATCH = "FRAME_SIZE_MISMATCH"
 ANCHOR_DRIFT = "ANCHOR_DRIFT"
 SILHOUETTE_BREAK = "SILHOUETTE_BREAK"
-
-# Stubbed / N-A for static Slice 1 props (still named for later slices).
-SCALE_DRIFT = "SCALE_DRIFT"
-PALETTE_DRIFT = "PALETTE_DRIFT"
 ANATOMY_DRIFT = "ANATOMY_DRIFT"
 LIGHTING_DRIFT = "LIGHTING_DRIFT"
+
+# Named for later slices / drift family.
+SCALE_DRIFT = "SCALE_DRIFT"
+PALETTE_DRIFT = "PALETTE_DRIFT"
 SEMI_TRANSPARENT_PIXEL = "SEMI_TRANSPARENT_PIXEL"
 REVIEW_PENDING = "REVIEW_PENDING"
 STAGE_BLOCKED = "STAGE_BLOCKED"
@@ -36,6 +38,8 @@ HARD_FAIL_CODES = {
     FRAME_SIZE_MISMATCH,
     ANCHOR_DRIFT,
     SILHOUETTE_BREAK,
+    ANATOMY_DRIFT,
+    LIGHTING_DRIFT,
 }
 
 
@@ -299,6 +303,98 @@ def check_silhouette(
                     frame=frame,
                 )
             )
+
+    if silhouette.get("horse"):
+        errors.extend(
+            _check_horse_silhouette(image, silhouette, all_points, box, frame=frame)
+        )
+    return errors
+
+
+def _horizontal_runs(xs: list[int]) -> int:
+    if not xs:
+        return 0
+    ordered = sorted(xs)
+    runs = 1
+    for prev, cur in zip(ordered, ordered[1:]):
+        if cur > prev + 1:
+            runs += 1
+    return runs
+
+
+def _check_horse_silhouette(
+    image: Image.Image,
+    silhouette: dict[str, Any],
+    all_points: list[tuple[int, int]],
+    box: tuple[int, int, int, int],
+    *,
+    frame: int,
+) -> list[dict[str, Any]]:
+    """Side-view horse must read at native size: head right, tail left, hooves down."""
+    errors: list[dict[str, Any]] = []
+    min_x, min_y, max_x, max_y = box
+    bbox_w = max_x - min_x + 1
+    bbox_h = max_y - min_y + 1
+    facing = str(silhouette.get("facing") or "right")
+
+    top_cut = min_y + max(6, int(0.25 * bbox_h))
+    top_pts = [(x, y) for x, y in all_points if y <= top_cut]
+    if top_pts:
+        avg_top_x = sum(x for x, _ in top_pts) / len(top_pts)
+        avg_x = sum(x for x, _ in all_points) / len(all_points)
+        if facing == "right" and avg_top_x <= avg_x:
+            errors.append(
+                _issue(
+                    SILHOUETTE_BREAK,
+                    message="horse does not face right (head/ears not on the right)",
+                    frame=frame,
+                )
+            )
+        if facing == "left" and avg_top_x >= avg_x:
+            errors.append(
+                _issue(
+                    SILHOUETTE_BREAK,
+                    message="horse does not face left",
+                    frame=frame,
+                )
+            )
+
+    mid_lo = min_y + bbox_h // 4
+    mid_hi = min_y + (bbox_h * 3) // 4
+    left_band = [x for x, y in all_points if mid_lo <= y <= mid_hi]
+    if left_band and min(left_band) > min_x + max(2, bbox_w // 6):
+        errors.append(
+            _issue(
+                SILHOUETTE_BREAK,
+                message="tail does not read on the left of the silhouette",
+                frame=frame,
+            )
+        )
+
+    hoof_xs = [x for x, y in all_points if y == max_y]
+    clusters = _horizontal_runs(hoof_xs)
+    min_hooves = int(silhouette.get("min_hoof_clusters") or 3)
+    max_hooves = int(silhouette.get("max_hoof_clusters") or 4)
+    if clusters < min_hooves or clusters > max_hooves:
+        errors.append(
+            _issue(
+                SILHOUETTE_BREAK,
+                message=(
+                    f"hoof ground-contact clusters {clusters} not in "
+                    f"{min_hooves}–{max_hooves}"
+                ),
+                frame=frame,
+            )
+        )
+
+    if max_x < image.size[0] // 2:
+        errors.append(
+            _issue(
+                SILHOUETTE_BREAK,
+                message="silhouette does not read as a horse facing across the canvas",
+                frame=frame,
+            )
+        )
     return errors
 
 
@@ -307,6 +403,127 @@ def check_static_stubs(spec: dict[str, Any]) -> list[dict[str, Any]]:
     if spec.get("animation", {}).get("enabled"):
         return []
     return []
+
+
+def check_frame_consistency(
+    frames: list[Image.Image],
+    spec: dict[str, Any],
+    palette: dict[str, Any],
+    project: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Compare idle frames to the key pose. Hard-fail anatomy and lighting drift."""
+    errors: list[dict[str, Any]] = []
+    if len(frames) < 2:
+        return [
+            _issue(
+                ANATOMY_DRIFT,
+                message="frame consistency requires at least 2 idle frames",
+            )
+        ]
+    validation = project.get("validation") or {}
+    max_bbox = float(validation.get("max_anatomy_bbox_drift_px") or 1)
+    max_com = float(validation.get("max_anatomy_com_drift_px") or 1.5)
+    max_occupied = float(validation.get("max_anatomy_occupied_delta") or 12)
+    max_light = float(validation.get("max_lighting_centroid_drift_px") or 2)
+    max_anchor = float(validation.get("max_anchor_drift_px") or 1)
+
+    key = frames[0]
+    key_pts = [(x, y) for x, y, _ in opaque_pixels(key)]
+    key_box = bounding_box(key_pts)
+    key_com = center_of_mass(key)
+    if key_box is None or key_com is None:
+        return [_issue(ANATOMY_DRIFT, message="key pose has no opaque pixels")]
+    key_count = len(key_pts)
+    key_hoof_y = key_box[3]
+    roles = palette["roles"]
+    light_rgbs = {
+        (int(roles["LIGHT"][0]), int(roles["LIGHT"][1]), int(roles["LIGHT"][2])),
+        (
+            int(roles["HIGHLIGHT"][0]),
+            int(roles["HIGHLIGHT"][1]),
+            int(roles["HIGHLIGHT"][2]),
+        ),
+    }
+    key_light = role_centroid(key, light_rgbs)
+
+    for index, frame in enumerate(frames):
+        errors.extend(check_frame_size(frame, spec, frame=index))
+        if index == 0:
+            continue
+        pts = [(x, y) for x, y, _ in opaque_pixels(frame)]
+        box = bounding_box(pts)
+        com = center_of_mass(frame)
+        if box is None or com is None:
+            errors.append(_issue(ANATOMY_DRIFT, message="empty frame", frame=index))
+            continue
+        bbox_drift = max(abs(a - b) for a, b in zip(box, key_box))
+        if bbox_drift > max_bbox:
+            errors.append(
+                _issue(
+                    ANATOMY_DRIFT,
+                    message=f"bbox drift {bbox_drift:.2f}px > {max_bbox}",
+                    frame=index,
+                    pixels=bbox_drift,
+                )
+            )
+        com_drift = max(abs(com[0] - key_com[0]), abs(com[1] - key_com[1]))
+        if com_drift > max_com:
+            errors.append(
+                _issue(
+                    ANATOMY_DRIFT,
+                    message=f"center-of-mass drift {com_drift:.2f}px > {max_com}",
+                    frame=index,
+                    pixels=com_drift,
+                )
+            )
+        occupied_delta = abs(len(pts) - key_count)
+        if occupied_delta > max_occupied:
+            errors.append(
+                _issue(
+                    ANATOMY_DRIFT,
+                    message=(
+                        f"occupied delta {occupied_delta} > {max_occupied} "
+                        "(idle must be key pose + minimal shifts)"
+                    ),
+                    frame=index,
+                    pixels=occupied_delta,
+                )
+            )
+        hoof_y = box[3]
+        if abs(hoof_y - key_hoof_y) > max_anchor:
+            errors.append(
+                _issue(
+                    ANCHOR_DRIFT,
+                    message=f"hoof y {hoof_y} drifted from key {key_hoof_y}",
+                    frame=index,
+                    pixels=abs(hoof_y - key_hoof_y),
+                )
+            )
+        light = role_centroid(frame, light_rgbs)
+        if key_light is None or light is None:
+            errors.append(
+                _issue(
+                    LIGHTING_DRIFT,
+                    message="missing LIGHT/HIGHLIGHT centroid",
+                    frame=index,
+                )
+            )
+        else:
+            light_drift = max(
+                abs(light[0] - key_light[0]), abs(light[1] - key_light[1])
+            )
+            if light_drift > max_light:
+                errors.append(
+                    _issue(
+                        LIGHTING_DRIFT,
+                        message=(
+                            f"lighting centroid drift {light_drift:.2f}px > {max_light}"
+                        ),
+                        frame=index,
+                        pixels=light_drift,
+                    )
+                )
+    return errors
 
 
 def validate_frame(

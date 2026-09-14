@@ -69,7 +69,11 @@
         "max_colors": { "type": "integer", "minimum": 1 },
         "min_occupied_pixels": { "type": "integer", "minimum": 1 },
         "min_bbox_width": { "type": "integer", "minimum": 1 },
-        "min_bbox_height": { "type": "integer", "minimum": 1 }
+        "min_bbox_height": { "type": "integer", "minimum": 1 },
+        "max_anatomy_bbox_drift_px": { "type": "number", "minimum": 0 },
+        "max_anatomy_com_drift_px": { "type": "number", "minimum": 0 },
+        "max_anatomy_occupied_delta": { "type": "number", "minimum": 0 },
+        "max_lighting_centroid_drift_px": { "type": "number", "minimum": 0 }
       }
     },
     "review": {

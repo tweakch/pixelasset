@@ -27,6 +27,16 @@ FROZEN_PALETTE_V0 = {
     "ACCENT": [166, 124, 82],
 }
 
+FROZEN_PALETTE_V1 = {
+    "OUTLINE": [28, 19, 12],
+    "SHADOW_DARK": [43, 29, 20],
+    "SHADOW": [105, 68, 33],
+    "BASE": [138, 90, 43],
+    "LIGHT": [166, 108, 52],
+    "HIGHLIGHT": [196, 137, 90],
+    "ACCENT": [74, 53, 36],
+}
+
 
 def test_all_schema_files_present_and_loadable(repo_root: Path) -> None:
     paths = ProjectPaths(repo_root)
@@ -41,22 +51,39 @@ def test_project_style_palette_and_hay_bale_spec_validate(repo_root: Path) -> No
     project = load_project_config(paths)
     style = load_style_bible(paths)
     palette = load_palette(paths, "palette_v0")
+    palette_v1 = load_palette(paths, "palette_v1")
     spec = load_asset_spec(paths, "hay_bale")
+    horse = load_asset_spec(paths, "horse_bay")
     assert project["project"]["tile_unit"] == 16
     assert project["versions"]["palette"] == "palette_v0"
     assert palette["tile_unit"] == 16
     assert palette["version"] == "palette_v0"
     assert palette["roles"] == FROZEN_PALETTE_V0
+    assert palette_v1["version"] == "palette_v1"
+    assert palette_v1["roles"] == FROZEN_PALETTE_V1
     assert spec["id"] == "hay_bale"
     assert spec["construction_path"] == "C"
     assert spec["canvas"] == {"width": 24, "height": 16}
     assert spec["anchors"]["origin"] == "bottom_center"
     assert spec["anchors"]["points"]["feet"] == [12, 15]
     assert spec["animation"]["enabled"] is False
+    assert horse["id"] == "horse_bay"
+    assert horse["palette"]["name"] == "palette_v1"
+    assert horse["canvas"] == {"width": 48, "height": 32}
+    assert horse["view"] == "side"
+    assert horse["animation"]["enabled"] is True
+    assert horse["animation"]["animations"][0]["name"] == "idle"
+    assert 2 <= horse["animation"]["animations"][0]["frames"] <= 4
+    assert horse["construction_path"] == "C"
     assert style["name"] == "Hof"
     assert style["theme"] == "Soft Equine Charm"
+    assert style["geometry"]["facing"] == "right"
+    assert style["geometry"]["max_character_dimensions"] == [48, 32]
+    assert style["palette"]["character"] == "palette_v1"
     assert style["rendering"]["anti_aliasing"] is False
     assert style["rendering"]["texture"]["cluster_min_px"] == 2
+    assert style["animation"]["idle"]["min_frames"] == 2
+    assert style["animation"]["idle"]["max_frames"] == 4
 
 
 def test_invalid_spec_rejected(repo_root: Path) -> None:

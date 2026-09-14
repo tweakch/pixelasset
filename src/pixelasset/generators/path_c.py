@@ -6,6 +6,7 @@ from typing import Any
 
 from PIL import Image
 
+from pixelasset.animation import apply_idle_motions
 from pixelasset.generator import Generator, register_generator
 
 
@@ -26,6 +27,15 @@ class PathCGenerator(Generator):
                 f"Path C requires a template for asset {spec.get('id')!r}"
             )
         return render_template(spec, palette, style, template_text)
+
+    def construct_idle(
+        self,
+        key_frame: Image.Image,
+        spec: dict[str, Any],
+        palette: dict[str, Any],
+        style: dict[str, Any],
+    ) -> list[Image.Image]:
+        return apply_idle_motions(key_frame, spec, palette, style)
 
 
 def render_template(
