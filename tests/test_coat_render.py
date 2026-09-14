@@ -35,6 +35,7 @@ from pixelasset.config import load_coat_palette
 from pixelasset.paths import ProjectPaths
 
 ROOT = Path(__file__).resolve().parent.parent
+PATHS = ProjectPaths(ROOT)
 PACK_FILE = ROOT / "packs/full_pack.yaml"
 HORSES = ROOT / "samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment"
 
@@ -63,9 +64,9 @@ def _sheet(rel: str) -> np.ndarray:
 
 
 def _palette(name: str) -> dict:
-    """Through the validating loader, so every test here exercises the schema
-    and the key-distinctness check rather than only the happy path."""
-    return load_coat_palette(ProjectPaths(ROOT), name)
+    """Through the validating loader, so every test here exercises the schema,
+    the key-distinctness check and role resolution rather than the happy path."""
+    return load_coat_palette(PATHS, name)
 
 
 @pytest.mark.parametrize("kind", sorted(SHEETS))
@@ -104,7 +105,7 @@ def test_the_eye_is_not_invariant_across_the_family():
     assert len(iris.branches) > 1, "the iris does change on socks_brown"
     assert iris.minority == 9 and iris.total == 120
 
-    for name in ("coat_bay", "coat_black", "coat_white", "coat_fox", "coat_dun"):
+    for name in ("coat_bay",) + COATS:
         coat = _palette(name)
         for eye in ("#ffffff", "#507a00", "#334d00", "#0b0b0b"):
             row = next(r for r in coat["map"] if r["from"] == eye)
@@ -183,14 +184,91 @@ def test_duplicate_targets_are_allowed_and_black_needs_them():
     mapping_for(black)  # distinct keys, so this must not raise
 
 
-def test_every_coat_covers_the_base_key_space_in_the_same_order():
-    """Coat files diff row for row, and a reordering hand-edit is caught."""
+COATS = ("coat_black", "coat_white", "coat_fox", "coat_dun", "coat_flaxen")
+
+
+def test_every_coat_covers_the_base_key_space():
     bay = _palette("coat_bay")
-    order = [r["from"] for r in bay["map"]]
-    for name in ("coat_black", "coat_white", "coat_fox", "coat_dun"):
+    keys = {r["from"] for r in bay["map"]}
+    for name in COATS:
         coat = _palette(name)
         assert coat["base"] == "coat_bay"
-        assert [r["from"] for r in coat["map"]] == order, f"{name} row order"
+        assert {r["from"] for r in coat["map"]} == keys, f"{name} key space"
+
+
+def test_colour_addressed_coats_keep_the_base_row_order():
+    """Extracted coats diff row for row against bay and each other, so a
+    reordering hand-edit is caught.
+
+    Role-addressed coats are exempt on purpose: they are written by intent and
+    grouped by feature, which is the more useful reading order for something a
+    human authored. The key space is still checked above, so exempting the order
+    gives up nothing but the diff alignment.
+    """
+    order = [r["from"] for r in _palette("coat_bay")["map"]]
+    for name in COATS:
+        coat = _palette(name)
+        raw = yaml.safe_load(
+            (ROOT / f"config/palettes/{name}.yaml").read_text(encoding="utf-8"))
+        if all("from" in r for r in raw["map"]):
+            assert [r["from"] for r in coat["map"]] == order, f"{name} order"
+
+
+def test_every_row_of_every_coat_carries_its_role():
+    """Roles are what make a coat readable and authorable. A row without one is
+    a row nobody can address by intent."""
+    for name in ("coat_bay",) + COATS:
+        coat = _palette(name)
+        missing = [r["from"] for r in coat["map"] if "role" not in r]
+        assert not missing, f"{name}: rows without a role: {missing}"
+
+
+def test_roles_pair_with_the_same_colour_in_every_coat():
+    """The role vocabulary is declared once, in the base coat. A derived coat
+    that paired MANE_LIGHT with a different bay colour would silently mean
+    something else by it — the loader rejects that, and this pins the rejection
+    rather than trusting it."""
+    bay = _palette("coat_bay")
+    expected = {r["role"]: r["from"] for r in bay["map"]}
+    for name in COATS:
+        for row in _palette(name)["map"]:
+            assert row["from"] == expected[row["role"]], f"{name}/{row['role']}"
+
+
+def test_a_derived_coat_may_be_addressed_by_role():
+    """Authoring by intent, resolved to the key space by the loader.
+
+    coat_flaxen is written entirely in roles and never names a bay colour, which
+    is the point: the file says what it changes, not which hex it changes.
+    """
+    raw = yaml.safe_load(
+        (ROOT / "config/palettes/coat_flaxen.yaml").read_text(encoding="utf-8"))
+    assert all("from" not in r for r in raw["map"]), "flaxen is role-addressed"
+    assert all("role" in r for r in raw["map"])
+    resolved = _palette("coat_flaxen")
+    assert all("from" in r for r in resolved["map"]), "the loader resolves them"
+
+
+def test_role_addressing_rejects_an_unknown_role():
+    from pixelasset.config import _resolve_roles
+
+    bay = _palette("coat_bay")
+    coat = {"name": "coat_t", "base": "coat_bay",
+            "map": [{"role": "WITHERS", "to": "#000000"}]}
+    with pytest.raises(ValueError, match="unknown role"):
+        _resolve_roles(PATHS, ROOT / "x.yaml", coat)
+    assert bay["name"] == "coat_bay"
+
+
+def test_role_addressing_rejects_a_disagreeing_pair():
+    """Both `role` and `from` is allowed — an extracted coat carries both so it
+    reads as more than hex — but it is checked, not trusted."""
+    from pixelasset.config import _resolve_roles
+
+    coat = {"name": "coat_t", "base": "coat_bay",
+            "map": [{"role": "BODY_BASE", "from": "#000000", "to": "#123456"}]}
+    with pytest.raises(ValueError, match="pairs that role with"):
+        _resolve_roles(PATHS, ROOT / "x.yaml", coat)
 
 
 FOX_MAPPING = {
@@ -213,8 +291,8 @@ def test_fox_mapping_is_unchanged_by_the_refactor():
 def test_coat_files_all_validate():
     """Closes the debt these files carried: they were never schema-validated."""
     found = sorted(p.stem for p in (ROOT / "config/palettes").glob("coat_*.yaml"))
-    assert found == ["coat_bay", "coat_black", "coat_dun", "coat_fox",
-                     "coat_white"]
+    assert found == ["coat_bay", "coat_black", "coat_dun", "coat_flaxen",
+                     "coat_fox", "coat_white"]
     for name in found:
         _palette(name)
 
@@ -223,18 +301,22 @@ def test_coat_source_hashes_match():
     """The §19 record, checked. Not called from ingest — see verify_source."""
     if not (ROOT / "samples/Full_Pack").is_dir():
         pytest.skip("gitignored third-party pack not present")
-    for name in ("coat_bay", "coat_black", "coat_white", "coat_fox", "coat_dun"):
+    for name in ("coat_bay",) + COATS:
         verify_source(_palette(name), ROOT)
 
 
 # --- extraction ------------------------------------------------------------
 
 def _extract(target_file: str, name: str) -> dict:
+    """As the CLI does it, roles included — an extracted file should read as
+    more than a wall of hex."""
+    base = _palette("coat_bay")
     return extract_coat(
         _sheet(SHEETS["horse"]),
         _sheet(f"Horse_Sprite_Asset/Horses_no_equipment/{target_file}"),
         name=name, base_name="coat_bay",
         source={"sheet": "x", "sha256": "0" * 64},
+        roles={from_hex(r["from"]): r["role"] for r in base["map"]},
     )
 
 
@@ -515,3 +597,102 @@ def test_the_hand_authored_dun_holds_bays_shading_ladder():
     assert deviations == ["#734e3d"], "only the highlight may deviate"
     assert max(after) - min(after) > max(before) - min(before), \
         "the lifted highlight should widen the range, not narrow it"
+
+
+def test_every_collapsed_role_pair_is_signed_off():
+    """§27: validation reports, and an intended finding is accepted WITH the
+    reason attached rather than silently dropped.
+
+    A collapse is not automatically a defect — a black horse's mane really is
+    not lighter than its body, and extraction measured that off the art rather
+    than deciding it. But it costs whatever the two roles were distinguishing,
+    usually the mane's hatched strands against the neck, so it is signed off
+    per coat. Both directions are checked: an unsigned collapse fails, and so
+    does an acceptance that no longer corresponds to one, because a stale
+    sign-off is how a real regression gets waved through.
+    """
+    from pixelasset.coat import collapses
+
+    bay = _palette("coat_bay")
+    for name in ("coat_bay",) + COATS:
+        coat = _palette(name)
+        found = {f"{a}/{b}" for a, b, _, _ in collapses(bay, coat)}
+        accepted = set(coat.get("accept_collapse") or {})
+        assert found - accepted == set(), (
+            f"{name}: unsigned collapse(s) {sorted(found - accepted)} — either "
+            f"fix the colours or accept them with a reason"
+        )
+        assert accepted - found == set(), (
+            f"{name}: accept_collapse names {sorted(accepted - found)}, which "
+            f"no longer collapse. Remove the stale sign-off."
+        )
+        for pair, reason in (coat.get("accept_collapse") or {}).items():
+            assert len(reason.strip()) > 20, f"{name}/{pair} needs a real reason"
+
+
+def test_the_mane_needs_headroom_not_a_direction():
+    """The structural constraint, stated precisely enough to be true.
+
+    An earlier version of this test claimed MANE_LIGHT must stay above
+    BODY_BASE. coat_white disproves it: its mane is 198 against a 238 body and
+    reads perfectly, because at that brightness there is room below the body and
+    above the outline. What actually binds is headroom — bay's dark end is
+    already three values of outline, so a body at bay's own luminance leaves
+    almost nowhere to darken a mane into. Hence the dun's lifted mane and
+    white's lowered one are both correct.
+
+    The real rule is just "stay separated", which `collapses` already enforces
+    for every coat. This pins the headroom fact that explains why.
+    """
+    from pixelasset.coat import _luminance, role_colours
+
+    bay = role_colours(_palette("coat_bay"))
+    line_top = max(_luminance(bay[r]) for r in _palette("coat_bay")["roles"]["line"])
+    body_base = _luminance(bay["BODY_BASE"])
+    assert line_top < 20 and body_base < 90, (
+        "bay is a dark palette: the outline tops out at 15 and the body base "
+        "sits at 81, which is the whole reason a darkened mane has nowhere to go"
+    )
+    white = role_colours(_palette("coat_white"))
+    assert _luminance(white["MANE_LIGHT"]) < _luminance(white["BODY_BASE"]), (
+        "white's mane is darker than its body — a direction rule would be wrong"
+    )
+
+
+def test_propose_catches_the_collapse_that_was_made_by_hand():
+    """The regression this check exists for.
+
+    An earlier dun desaturated the body and the mane together, dropping
+    MANE_LIGHT to 6 RGB units from BODY_BASE against bay's 23. It was found by
+    eye, late. This is the same intent, and it must warn.
+    """
+    from pixelasset.coat import propose_coat
+
+    _, warnings = propose_coat(
+        _palette("coat_bay"),
+        {"body": "#5a5138", "mane": "#5e553a"},
+        name="coat_regression",
+    )
+    assert any("BODY_BASE" in w and "MANE_LIGHT" in w for w in warnings)
+
+
+def test_propose_holds_the_ladder_and_keeps_the_eye():
+    from pixelasset.coat import _luminance, from_hex, propose_coat, role_colours
+
+    bay = _palette("coat_bay")
+    coat, _ = propose_coat(bay, {"body": "#c89a4e"}, name="coat_t")
+    before, after = role_colours(bay), role_colours(coat)
+
+    body = bay["roles"]["body"]
+    ratios = [_luminance(after[r]) / _luminance(before[r]) for r in body]
+    assert max(ratios) - min(ratios) < 0.02, "the body ladder scales uniformly"
+    for role in bay["roles"]["eye"] + bay["roles"]["mane"]:
+        assert after[role] == before[role], "groups left out are kept"
+    assert from_hex("#c89a4e") in after.values()
+
+
+def test_propose_rejects_an_unknown_group():
+    from pixelasset.coat import propose_coat
+
+    with pytest.raises(ValueError, match="unknown role group"):
+        propose_coat(_palette("coat_bay"), {"withers": "#000000"}, name="t")

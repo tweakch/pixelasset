@@ -74,14 +74,16 @@ Two earlier designs were cut because a bot round exposed them:
 - **Collision driven by the artwork** — the frames where the horse clears the
   rail are the frames where the sprite has actually left the ground (`air` in
   `sprites.js`), not a guessed timer.
-- **Asset families** (§23) — `C` swaps fourteen horse coats that share geometry,
+- **Asset families** (§23) — `C` swaps fifteen horse coats that share geometry,
   scale, lighting and outline rules, across all five sheets at once. Seven are
-  the pack's own; the other seven are rendered from bay's geometry through
+  the pack's own; the other eight are rendered from bay's geometry through
   another palette. Three (`black_render`, `white_render`, `bay_socks`) sit next
   to the shipped coat they reproduce, so the difference can be seen rather than
-  argued about; two (`fox`, `dun`) are invented, with no shipped counterpart;
-  and two (`fox_socks`, `dun_paint`) combine an invented body coat with a
-  marking derived from the pack's own art.
+  argued about; three (`fox`, `dun`, `flaxen`) are invented, with no shipped
+  counterpart; and two (`fox_socks`, `dun_paint`) combine an invented body coat
+  with a marking derived from the pack's own art. `flaxen` is `fox`'s body with
+  only its three mane rows changed — worth putting next to `fox` in the cycle,
+  since fox's mane deliberately disappears into its coat and flaxen's does not.
 - **No subpixel placement** (§5) — all draw positions are rounded and the frame
   is composited at native 480×320, then integer-scaled with
   `imageSmoothingEnabled = false`.

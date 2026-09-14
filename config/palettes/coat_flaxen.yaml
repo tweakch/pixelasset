@@ -1,0 +1,56 @@
+name: coat_flaxen
+version: coat_flaxen_v1
+family: horse
+base: coat_bay
+description: >-
+  Flaxen chestnut — a chestnut body with a pale cream mane and tail. Written by
+  role rather than by colour, which is the whole point of this file: it is
+  coat_fox's body, outline and eye with three rows changed, and it reads that
+  way.
+
+  This coat was previously believed impossible. The claim was that bay's
+  thirteen colours are a shading ladder rather than a body-part map, so no row
+  is "the mane" and a pale mane would bleach the body with it. That was wrong,
+  and the measurement that settles it is in coat_bay.yaml: socks and paint
+  override 66-75% of the body group and 0.0-0.1% of MANE_*. Two independently
+  drawn markings both leaving three colours alone is not a coincidence — those
+  three are the mane and the tail, and they are addressable on their own.
+
+  What the palette constrains is headroom, not direction. Bay's dark end is
+  already three values of outline, so with a body at bay's own luminance there is
+  almost nowhere to darken a mane into — a search over body saturation and mane
+  luminance finds no clean coat that does it. Lightening has the whole range
+  above to work with, so flaxen comes out clean on the first try. That is a fact
+  about this palette's brightness rather than about manes: coat_white's mane is
+  darker than its body and reads perfectly, because a body at luminance 238
+  leaves plenty of room below it.
+
+  `propose_coat` reports no collapsed pairs for these values. That check exists
+  because the mistake it catches was made by hand first: an earlier dun
+  desaturated body and mane together and dropped MANE_LIGHT to 6 RGB units from
+  BODY_BASE, against bay's 23, which would have flattened the mane's hatched
+  strand texture into the neck.
+source:
+  sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
+  sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
+map:
+  # Body, outline and eye are coat_fox's, unchanged — flaxen is a mane, not a
+  # new chestnut. Addressed by role so that reads at a glance.
+  - {role: BODY_BASE,       to: '#b44921'}
+  - {role: BODY_SHADOW,     to: '#863619'}
+  - {role: BODY_DEEP,       to: '#622812'}
+  - {role: OUTLINE,         to: '#290f05'}
+  - {role: CONTOUR,         to: '#240d05'}
+  - {role: HOOF,            to: '#090302'}
+
+  # The three rows that make it flaxen. Proposed by holding each mane step's
+  # luminance ratio and anchoring MANE_LIGHT on a pale cream, so the strand
+  # hatching keeps its internal contrast instead of flattening to one tone.
+  - {role: MANE_LIGHT,      to: '#d8c49a'}   # lum 197 against the body's 93
+  - {role: MANE_MID,        to: '#84775e'}   # lum 120
+  - {role: MANE_DARK,       to: '#423c2f'}   # lum  60
+
+  - {role: EYE_WHITE,       to: '#ffffff'}
+  - {role: EYE_IRIS,        to: '#507a00'}
+  - {role: EYE_IRIS_SHADED, to: '#334d00'}
+  - {role: EYE_PUPIL,       to: '#0b0b0b'}

@@ -36,16 +36,16 @@ source:
   sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_White.png
   sha256: 81439e8e75aeba8c846de3a27b36ad96f9164d5999e2eadb84af5a7256619c4c
 map:
-  - {from: '#80472c', to: '#eeeeee'}   # base body
-  - {from: '#190d06', to: '#262626'}
-  - {from: '#5e3420', to: '#aeaeae'}
-  - {from: '#442516', to: '#6a6a6a'}
-  - {from: '#150a05', to: '#3b3023'}   # 137 px minority (1.25%) — the worst row
-  - {from: '#000000', to: '#151515'}   # outline
-  - {from: '#2a160d', to: '#6f5b44'}
-  - {from: '#734e3d', to: '#e1c29c'}   # highlight — back, croup
-  - {from: '#482f23', to: '#998164'}
-  - {from: '#ffffff', to: '#ffffff'}   # eye white
-  - {from: '#507a00', to: '#507a00'}   # eye iris
-  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded
-  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil
+  - {from: '#80472c', to: '#eeeeee', role: BODY_BASE}
+  - {from: '#190d06', to: '#262626', role: OUTLINE}
+  - {from: '#5e3420', to: '#aeaeae', role: BODY_SHADOW}
+  - {from: '#442516', to: '#6a6a6a', role: BODY_DEEP}
+  - {from: '#150a05', to: '#3b3023', role: CONTOUR}       # 137 px minority (1.25%) — the worst row
+  - {from: '#000000', to: '#151515', role: HOOF}
+  - {from: '#2a160d', to: '#6f5b44', role: MANE_DARK}
+  - {from: '#734e3d', to: '#e1c29c', role: MANE_LIGHT}
+  - {from: '#482f23', to: '#998164', role: MANE_MID}
+  - {from: '#ffffff', to: '#ffffff', role: EYE_WHITE}
+  - {from: '#507a00', to: '#507a00', role: EYE_IRIS}
+  - {from: '#334d00', to: '#334d00', role: EYE_IRIS_SHADED}
+  - {from: '#0b0b0b', to: '#0b0b0b', role: EYE_PUPIL}

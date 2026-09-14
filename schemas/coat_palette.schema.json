@@ -1,51 +1,120 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://pixelasset.local/schemas/coat_palette.schema.json",
-  "title": "Pixelasset coat palette (base colour → coat colour)",
-  "description": "A coat of an ingested third-party family: a colour-for-colour correspondence measured off one named sheet, applied to another coat's geometry. Deliberately NOT palette.schema.json's `coats`, which is a seven-role style ramp (OUTLINE…ACCENT) replacing `roles` wholesale for Path C's role-character templates. These colours have no roles and cannot acquire them — #5e3420 is not SHADOW in any style sense, it is whatever the pack's artist used. Folding them in would also mean re-measuring a third-party PNG bumps palette_v1, versioning the pack inside the §19 style record and changing every Path C asset's palette_version. §23 is satisfied instead by every coat of a family sharing one key space, named in `base` and checked for set equality.",
+  "title": "Pixelasset coat palette (base colour \u2192 coat colour)",
+  "description": "A coat of an ingested third-party family: a colour-for-colour correspondence measured off one named sheet, applied to another coat's geometry. Deliberately NOT palette.schema.json's `coats`, which is a seven-role style ramp (OUTLINE\u2026ACCENT) replacing `roles` wholesale for Path C's role-character templates. These colours have no roles and cannot acquire them \u2014 #5e3420 is not SHADOW in any style sense, it is whatever the pack's artist used. Folding them in would also mean re-measuring a third-party PNG bumps palette_v1, versioning the pack inside the \u00a719 style record and changing every Path C asset's palette_version. \u00a723 is satisfied instead by every coat of a family sharing one key space, named in `base` and checked for set equality.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "version", "family", "base", "source", "map"],
+  "required": [
+    "name",
+    "version",
+    "family",
+    "base",
+    "source",
+    "map"
+  ],
   "properties": {
-    "name": {"type": "string", "minLength": 1},
-    "version": {"type": "string", "minLength": 1},
-    "family": {"type": "string", "minLength": 1},
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1
+    },
     "base": {
       "type": "string",
       "minLength": 1,
-      "description": "The coat whose colours are this coat's keys. Every coat of a family declares the same base, and `map`'s key set is checked against it — that shared key space is the thing variants actually share."
+      "description": "The coat whose colours are this coat's keys. Every coat of a family declares the same base, and `map`'s key set is checked against it \u2014 that shared key space is the thing variants actually share."
     },
-    "description": {"type": "string"},
+    "description": {
+      "type": "string"
+    },
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sheet", "sha256"],
-      "description": "The one sheet this coat was measured from. Pinned to a single sheet on purpose: the pack is not self-consistent across its own sheet families, so a coat that matched all of them cannot exist. Verified at extraction and in the tests, never during a build — see coat.verify_source.",
+      "required": [
+        "sheet",
+        "sha256"
+      ],
+      "description": "The one sheet this coat was measured from. Pinned to a single sheet on purpose: the pack is not self-consistent across its own sheet families, so a coat that matched all of them cannot exist. Verified at extraction and in the tests, never during a build \u2014 see coat.verify_source.",
       "properties": {
-        "sheet": {"type": "string", "minLength": 1},
-        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        "sheet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
       }
     },
     "map": {
       "type": "array",
       "minItems": 1,
-      "description": "One row per colour of the base coat's visible palette, ordered by pixel count descending so two coat files diff row for row. A list of rows rather than a YAML mapping because yaml.safe_load silently keeps the last of duplicate keys, which is the exact failure that must be caught; and rather than two parallel lists because those encode the correspondence in line numbers, so a reorder would silently remap the whole coat. Key distinctness is enforced by the loader, not here: JSON Schema 2020-12 has no unique-by-property keyword, and uniqueItems only dedupes whole rows.",
+      "description": "One row per colour of the base coat's visible palette, ordered by pixel count descending so two coat files diff row for row. A list of rows rather than a YAML mapping because yaml.safe_load silently keeps the last of duplicate keys, which is the exact failure that must be caught; and rather than two parallel lists because those encode the correspondence in line numbers, so a reorder would silently remap the whole coat. Key distinctness is enforced by the loader, not here: JSON Schema 2020-12 has no unique-by-property keyword, and uniqueItems only dedupes whole rows. A row is addressed by `from` (a colour) or by `role` (a name the base coat gives that colour) \u2014 the loader resolves `role` to `from`, so authoring by intent and diffing by colour are the same file format.",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["from", "to"],
+        "required": [
+          "to"
+        ],
         "properties": {
           "from": {
             "type": "string",
             "pattern": "^#[0-9a-f]{6}$",
-            "description": "A colour of the base coat. These are the keys and must be pairwise distinct."
+            "description": "A colour of the base coat. These are the keys and must be pairwise distinct. The base coat declares every row with both `from` and `role`; a derived coat gives one or the other."
           },
           "to": {
             "type": "string",
             "pattern": "^#[0-9a-f]{6}$",
             "description": "What that colour becomes. Duplicates are legal and intentional: a coat whose art uses fewer colours than the base names the same target twice, which is how black's eleven colours cover bay's thirteen steps."
+          },
+          "role": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "What the colour IS, so a coat can be authored by intent rather than by hex. Declared once, in the base coat, and derived from the artwork rather than assumed \u2014 see coat_bay.yaml for the measurement behind each name. A derived coat may address a row by `role` instead of `from`; the loader resolves it."
           }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "from"
+            ]
+          },
+          {
+            "required": [
+              "role"
+            ]
+          }
+        ]
+      }
+    },
+    "roles": {
+      "type": "object",
+      "description": "Role groups, declared by the base coat only. A group is a set of roles that belong to one feature of the artwork, so an intent like \"lighten the mane\" addresses a group rather than three hex values. Derived from the art: the marking test in coat_bay.yaml is what separates `mane` from `body`.",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
         }
+      }
+    },
+    "accept_collapse": {
+      "type": "object",
+      "description": "Role pairs this coat deliberately renders indistinguishable, each with the reason. A collapse is not automatically a defect \u2014 a black horse's mane really is not lighter than its body, and a chestnut's mane really is close to its coat \u2014 but it costs the hatched strand texture, so it is signed off rather than ignored. \u00a727: validation reports and an intended finding is accepted WITH the reason attached, never silently dropped. Keys are 'ROLE_A/ROLE_B' with the roles in alphabetical order.",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "propertyNames": {
+        "pattern": "^[A-Z][A-Z0-9_]*/[A-Z][A-Z0-9_]*$"
       }
     }
   }

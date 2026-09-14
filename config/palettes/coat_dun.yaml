@@ -1,43 +1,56 @@
 name: coat_dun
-version: coat_dun_v1
+version: coat_dun_v2
 family: horse
 base: coat_bay
 description: >-
-  Dun — desaturated olive-tan body with black points. Hand-authored, not
-  extracted: the pack ships no dun, so there is no sheet to read it off and
-  correctness here is a visual judgement (§22) rather than a measurement. This
-  is the worked example for authoring a coat against a key space instead of
-  extracting one.
+  Dun — a desaturated olive-tan body with a dark mane and tail. Hand-authored,
+  not extracted: the pack ships no dun, so correctness here is a visual
+  judgement (§22) rather than a measurement.
 
-  Method, the same one that produced the fox: hold each bay step's luminance and
-  shift hue and saturation, so the shading ladder carries over and the artwork
-  holds its form. Every body row is within 0.5 of bay's luminance at hue 44° and
-  saturation 0.38. The three darkest rows are bay's points — mane, tail, lower
-  legs — and deepest shadow; a dun has black points, so they stay near-neutral
-  rather than taking the body's tint.
+  Method: hold each bay step's luminance and shift hue and saturation, so the
+  shading ladder carries over and the artwork keeps its form. Every body row is
+  within 0.5 of bay's luminance at hue 44° and saturation 0.38. The colours are
+  unchanged from coat_dun_v1; v2 renames the reasoning, which was wrong.
 
-  One deliberate deviation, and it is the thing luminance-holding gets wrong:
-  bay's highlight #734e3d sits only 3.4 luminance above its body #80472c, so the
-  two are separated by hue (saturated orange-brown against desaturated
-  mauve-brown) rather than by value. Desaturating both collapses that
-  separation and the dorsal highlight stops reading. So #734e3d is lifted to
-  luminance 107 instead of 85, widening the total range to 107 against bay's 85.
-  More contrast, not less, and the luminance ordering of all thirteen rows is
-  unchanged.
+  What v1 got wrong. It described #734e3d as the body's highlight, separated
+  from the body base by hue rather than value, and said lifting it to luminance
+  107 was a deliberate deviation from luminance-holding. #734e3d is not a body
+  highlight — it is MANE_LIGHT, the lightest of the three mane-and-tail colours,
+  and the body has no highlight at all. So the "deviation" was really a decision
+  about the mane, made without knowing it was one. It happens to be the right
+  call, for a reason v1 could not have given: a search over body saturation and
+  mane luminance finds no coat with a body at bay's own luminance where the mane
+  is meaningfully darker and still distinct from it. Bay's dark end is already
+  three values of outline, so at this brightness a darkened mane has nowhere to
+  go. It is a headroom limit rather than a rule about direction — coat_white's
+  mane is darker than its body and reads fine, because a body at luminance 238
+  leaves room underneath. At 81 there is none, so this mane goes up, and that is
+  why it reads as a dark mane with lit strands rather than as a smear.
+
+  `propose_coat` reports no collapsed role pairs for these values.
 source:
   sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
   sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
 map:
-  - {from: '#80472c', to: '#5a5138'}   # olive-tan body
-  - {from: '#190d06', to: '#0f0f0e'}   # points — near-neutral, not tinted
-  - {from: '#5e3420', to: '#423c29'}
-  - {from: '#442516', to: '#2f2b1d'}
-  - {from: '#150a05', to: '#0c0c0b'}   # points
-  - {from: '#000000', to: '#000000'}   # outline, hooves — left pure black
-  - {from: '#2a160d', to: '#1c1912'}
-  - {from: '#734e3d', to: '#7a6b45'}   # highlight — lifted, see description
-  - {from: '#482f23', to: '#393424'}
-  - {from: '#ffffff', to: '#ffffff'}   # eye white
-  - {from: '#507a00', to: '#507a00'}   # eye iris
-  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded
-  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil
+  # Olive-tan body, each row holding bay's luminance to within 0.5.
+  - {role: BODY_BASE,       to: '#5a5138'}   # lum  81.1 (bay 81.2)
+  - {role: BODY_SHADOW,     to: '#423c29'}   # lum  59.9 (bay 59.5)
+  - {role: BODY_DEEP,       to: '#2f2b1d'}   # lum  42.8 (bay 42.5)
+
+  # Near-neutral and a touch cooler than bay's warm blacks. HOOF stays pure
+  # black — it is the darkest thing in the frame and has nowhere to go.
+  - {role: OUTLINE,         to: '#0f0f0e'}   # lum  14.9 (bay 15.0)
+  - {role: CONTOUR,         to: '#0c0c0b'}   # lum  11.9 (bay 12.0)
+  - {role: HOOF,            to: '#000000'}   # lum   0.0
+
+  # Mane and tail. MANE_LIGHT is lifted above the body so the strand hatching
+  # keeps reading; the two darker steps stay dark, which is what makes it a dun
+  # rather than a flaxen.
+  - {role: MANE_LIGHT,      to: '#7a6b45'}   # lum 107.4 — above the body's 81
+  - {role: MANE_MID,        to: '#393424'}   # lum  51.9
+  - {role: MANE_DARK,       to: '#1c1912'}   # lum  25.1
+
+  - {role: EYE_WHITE,       to: '#ffffff'}
+  - {role: EYE_IRIS,        to: '#507a00'}
+  - {role: EYE_IRIS_SHADED, to: '#334d00'}
+  - {role: EYE_PUPIL,       to: '#0b0b0b'}

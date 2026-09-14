@@ -15,20 +15,31 @@ description: >-
   nine-step ramps. The four eye rows were pass-through then and are identity rows
   now — the same pixels, one fewer thing to remember. v2 is a format migration;
   the fox did not change colour.
+# A chestnut's mane is the same colour as its coat — that is what distinguishes
+# it from a bay, which has black points. So MANE_LIGHT landing 4 RGB units from
+# BODY_BASE is the coat being correct, not the palette being careless. The cost
+# is real and worth naming: bay separates those two by 23 and uses the gap to
+# make the mane's hatched strands read against the neck, and a fox loses that
+# texture. coat_flaxen is the same body with the mane pushed the other way, if
+# a chestnut with a visible mane is what is wanted.
+accept_collapse:
+  BODY_BASE/MANE_LIGHT: >-
+    A chestnut is self-coloured — the absence of contrasting points is the coat.
+    Costs the mane's strand texture; coat_flaxen is the contrasting alternative.
 source:
   sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
   sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
 map:
-  - {from: '#80472c', to: '#b44921'}   # chestnut body
-  - {from: '#190d06', to: '#290f05'}
-  - {from: '#5e3420', to: '#863619'}
-  - {from: '#442516', to: '#622812'}
-  - {from: '#150a05', to: '#240d05'}
-  - {from: '#000000', to: '#090302'}   # darkest — hooves, deepest shadow
-  - {from: '#2a160d', to: '#3f1a0c'}
-  - {from: '#734e3d', to: '#b84a22'}   # highlight — back, croup
-  - {from: '#482f23', to: '#732f15'}
-  - {from: '#ffffff', to: '#ffffff'}   # eye white
-  - {from: '#507a00', to: '#507a00'}   # eye iris
-  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded
-  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil
+  - {from: '#80472c', to: '#b44921', role: BODY_BASE}
+  - {from: '#190d06', to: '#290f05', role: OUTLINE}
+  - {from: '#5e3420', to: '#863619', role: BODY_SHADOW}
+  - {from: '#442516', to: '#622812', role: BODY_DEEP}
+  - {from: '#150a05', to: '#240d05', role: CONTOUR}
+  - {from: '#000000', to: '#090302', role: HOOF}
+  - {from: '#2a160d', to: '#3f1a0c', role: MANE_DARK}
+  - {from: '#734e3d', to: '#b84a22', role: MANE_LIGHT}
+  - {from: '#482f23', to: '#732f15', role: MANE_MID}
+  - {from: '#ffffff', to: '#ffffff', role: EYE_WHITE}
+  - {from: '#507a00', to: '#507a00', role: EYE_IRIS}
+  - {from: '#334d00', to: '#334d00', role: EYE_IRIS_SHADED}
+  - {from: '#0b0b0b', to: '#0b0b0b', role: EYE_PUPIL}

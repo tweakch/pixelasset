@@ -442,6 +442,7 @@ def extract_coat(
     base_name: str,
     source: dict,
     family: str = "horse",
+    roles: dict[RGB, str] | None = None,
     max_minority_fraction: float = MAX_MINORITY_FRACTION,
     min_minority_pixels: int = MIN_MINORITY_PIXELS,
 ) -> dict:
@@ -486,8 +487,13 @@ def extract_coat(
         "family": family,
         "base": base_name,
         "source": dict(source),
+        # `roles` is what makes an extracted file readable rather than a wall
+        # of hex. It is the base coat's own pairing, so it can be carried
+        # without becoming a second source of truth — the loader checks it.
         "map": [
-            {"from": to_hex(r.source), "to": to_hex(r.dominant)} for r in rows
+            {"from": to_hex(r.source), "to": to_hex(r.dominant),
+             **({"role": roles[r.source]} if roles and r.source in roles else {})}
+            for r in rows
         ],
         # Not part of the file format — reported so the caller can write the
         # measured cost into the description instead of guessing at it.
@@ -552,6 +558,147 @@ def verify_source(coat: dict, root) -> None:
             f"{coat['name']}: {coat['source']['sheet']} hashes to {digest}, "
             f"but the coat was measured against {coat['source']['sha256']}"
         )
+
+
+# --- authoring by intent ---------------------------------------------------
+
+# Two roles are "separated" in the artwork if they are far enough apart to read
+# as different colours. Bay separates MANE_LIGHT from BODY_BASE by only 3.4
+# luminance and a hue shift — 22.5 in RGB distance — so a coat that desaturates
+# both collapses the mane into the body and the hatched strand texture stops
+# reading. That is a real mistake that was made by hand before this check
+# existed, so the numbers are a record, not a guess.
+SEPARATED_IN_BASE = 18.0
+COLLAPSED_IN_COAT = 12.0
+
+
+def _distance(a: RGB, b: RGB) -> float:
+    return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+
+
+def _at_luminance(hue: float, sat: float, target: float) -> RGB:
+    """The RGB with this hue and saturation whose luminance is `target`.
+
+    Binary search on HSV value rather than algebra: luminance is not linear in
+    value once the channels clip, and the search is exact to a byte in 40 steps.
+    """
+    import colorsys
+
+    lo, hi = 0.0, 1.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        c = tuple(round(x * 255) for x in colorsys.hsv_to_rgb(hue, sat, mid))
+        if _luminance(c) < target:
+            lo = mid
+        else:
+            hi = mid
+    return tuple(round(x * 255)
+                 for x in colorsys.hsv_to_rgb(hue, sat, (lo + hi) / 2))
+
+
+def role_colours(coat: dict) -> dict[str, RGB]:
+    """role -> target colour. Requires a coat whose rows carry roles."""
+    return {r["role"]: from_hex(r["to"])
+            for r in coat["map"] if "role" in r}
+
+
+def collapses(base: dict, coat: dict) -> list[tuple[str, str, float, float]]:
+    """Role pairs the base coat separates but `coat` does not.
+
+    A collapse costs whatever the two roles were distinguishing — usually the
+    mane's hatched strand texture against the neck. It is not automatically a
+    defect: on a black horse the mane genuinely is not lighter than the body,
+    and extraction measured that off the art rather than inventing it. So this
+    reports, and `accept_collapse` in the coat file signs one off with its
+    reason (§27), which is checked rather than assumed to be current.
+    """
+    before, after = role_colours(base), role_colours(coat)
+    shared = sorted(set(before) & set(after))
+    out = []
+    for i, a in enumerate(shared):
+        for b in shared[i + 1:]:
+            was = _distance(before[a], before[b])
+            now = _distance(after[a], after[b])
+            if was >= SEPARATED_IN_BASE and now < COLLAPSED_IN_COAT:
+                out.append((a, b, was, now))
+    return out
+
+
+def propose_coat(
+    base: dict, intents: dict[str, str | RGB], *, name: str, family: str = "horse"
+) -> tuple[dict, list[str]]:
+    """A coat proposed from one colour per role group, holding the ladder.
+
+    This is the operation a human actually performs when authoring a coat:
+    "the body is this colour, the mane is that one, leave the eye alone". Each
+    group's lightest role takes the colour given; the rest of the group keeps
+    its luminance *relative to* that role and takes the new hue and saturation.
+    So the shading ladder carries over by construction rather than by care,
+    which is the whole reason a coat can be a palette at all.
+
+    An intent of "keep" is the identity for that group. A group left out is
+    kept, so `{"body": "#5a5138"}` is a legal and complete intent.
+
+    Returns (coat, warnings). Warnings are advisory and name pairs of roles the
+    base coat separates but the proposal does not — a review item, not an
+    error, because sometimes collapsing two roles is the point.
+    """
+    import colorsys
+
+    groups = base.get("roles") or {}
+    if not groups:
+        raise ValueError(
+            f"{base['name']} declares no role groups, so there is nothing to "
+            f"address by intent. Add a `roles:` block naming them."
+        )
+    unknown = sorted(set(intents) - set(groups))
+    if unknown:
+        raise ValueError(
+            f"unknown role group(s) {', '.join(unknown)} "
+            f"(known: {', '.join(sorted(groups))})"
+        )
+
+    current = role_colours(base)
+    proposed: dict[str, RGB] = dict(current)
+    for group, roles in groups.items():
+        intent = intents.get(group, "keep")
+        if intent == "keep":
+            continue
+        target = intent if isinstance(intent, tuple) else from_hex(intent)
+        anchor_role = max(roles, key=lambda r: _luminance(current[r]))
+        anchor_lum = _luminance(current[anchor_role])
+        if anchor_lum <= 0:
+            raise ValueError(
+                f"group {group!r} anchors on {anchor_role}, which is black in "
+                f"{base['name']} — there is no ladder to scale"
+            )
+        scale = _luminance(target) / anchor_lum
+        h, sv, _ = colorsys.rgb_to_hsv(*(c / 255 for c in target))
+        for role in roles:
+            if role == anchor_role:
+                proposed[role] = target
+            else:
+                proposed[role] = _at_luminance(
+                    h, sv, _luminance(current[role]) * scale
+                )
+
+    coat = {
+        "name": name,
+        "version": f"{name}_v1",
+        "family": family,
+        "base": base["name"],
+        "map": [
+            {"from": row["from"], "to": to_hex(proposed[row["role"]]),
+             "role": row["role"]}
+            for row in base["map"]
+        ],
+    }
+    warnings = [
+        f"{a} and {b} are {was:.0f} apart in {base['name']} but {now:.0f} "
+        f"apart here — they will stop reading as different colours"
+        for a, b, was, now in collapses(base, coat)
+    ]
+    return coat, warnings
 
 
 # --- mappings --------------------------------------------------------------
@@ -629,9 +776,20 @@ def as_yaml(coat: dict) -> str:
         f"  sha256: {src['sha256']}",
         "map:",
     ]
-    lines += [
-        f"  - {{from: '{r['from']}', to: '{r['to']}'}}" for r in coat["map"]
-    ]
+    by_role = all("role" in r for r in coat["map"]) and coat.get("_by_role")
+    if by_role:
+        # Proposed coats are authored by intent, so they read by intent: role
+        # first, grouped, with the colour the only thing a human chose.
+        width = max(len(r["role"]) for r in coat["map"])
+        for r in coat["map"]:
+            label = r["role"] + ","
+            lines.append(f"  - {{role: {label:<{width + 1}} to: '{r['to']}'}}")
+    else:
+        for r in coat["map"]:
+            row = f"  - {{from: '{r['from']}', to: '{r['to']}'"
+            if "role" in r:
+                row += f", role: {r['role']}"
+            lines.append(row + "}")
     st = coat.get("_stats")
     if st:
         lines += [
@@ -668,7 +826,47 @@ def _main(argv=None) -> int:
         help="another sheet pair to cross-check; reported, never enforced",
     )
     ex.add_argument("--root", type=Path, default=Path.cwd())
+    pr = sub.add_parser(
+        "propose", help="print a coat proposed from one colour per role group")
+    pr.add_argument("--base-name", default="coat_bay")
+    pr.add_argument("--name", required=True)
+    pr.add_argument("--family", default="horse")
+    pr.add_argument("--root", type=Path, default=Path.cwd())
+    pr.add_argument(
+        "--group", action="append", default=[], metavar="GROUP=COLOUR",
+        help="e.g. body=#b44921, mane=#d8c49a, line=keep. Groups left out are "
+             "kept. Run with no --group to list the groups the base declares.",
+    )
     args = ap.parse_args(argv)
+
+    if args.cmd == "propose":
+        from .config import load_coat_palette
+        from .paths import ProjectPaths
+
+        base_coat = load_coat_palette(ProjectPaths(args.root), args.base_name)
+        groups = base_coat.get("roles") or {}
+        if not args.group:
+            print(f"{args.base_name} declares these role groups:",
+                  file=sys.stderr)
+            for name, roles in groups.items():
+                print(f"  {name:6s} {', '.join(roles)}", file=sys.stderr)
+            print("\nPass --group NAME=#rrggbb (or =keep) for each.",
+                  file=sys.stderr)
+            return 2
+        intents = {}
+        for spec in args.group:
+            key, _, value = spec.partition("=")
+            intents[key.strip()] = value.strip()
+        coat, warnings = propose_coat(
+            base_coat, intents, name=args.name, family=args.family)
+        coat["_by_role"] = True
+        coat["source"] = dict(base_coat["source"])
+        for line in warnings:
+            print(f"# WARNING {line}", file=sys.stderr)
+        if not warnings:
+            print("# no collapsed role pairs", file=sys.stderr)
+        print(as_yaml(coat), end="")
+        return 0
 
     base = load_sheet(args.base)
     target = load_sheet(args.target)
@@ -681,10 +879,23 @@ def _main(argv=None) -> int:
         "sheet": str(sheet),
         "sha256": hashlib.sha256(args.target.read_bytes()).hexdigest(),
     }
+    roles = None
+    try:
+        from .config import load_coat_palette
+        from .paths import ProjectPaths
+
+        base_coat = load_coat_palette(ProjectPaths(args.root), args.base_name)
+        roles = {from_hex(r["from"]): r["role"]
+                 for r in base_coat["map"] if "role" in r}
+    except Exception:
+        # Extraction is useful before a base coat exists — that is how the
+        # first one gets written. Roles are a nicety here, not a dependency.
+        pass
+
     try:
         coat = extract_coat(
             base, target, name=args.name, base_name=args.base_name,
-            source=source, family=args.family,
+            source=source, family=args.family, roles=roles,
         )
     except AmbiguousCoat as exc:
         print(str(exc), file=sys.stderr)

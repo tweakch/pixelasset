@@ -8,10 +8,12 @@ description: >-
   Not a judgement call — the worst minority branch is 137 px, 1.25% of one
   source colour, so the correspondence is one-to-one to within noise.
 
-  Three targets repeat. Black's art uses eleven colours where bay uses thirteen,
-  so #444444, #262626 and #000000 are each named twice and two of bay's steps
-  collapse onto a shared black step. That is what "duplicates allowed on the
-  target side" is for, and it is why `to` is not a key.
+  Three targets repeat, and with the roles named it is clear why rather than just
+  that. MANE_LIGHT lands on BODY_SHADOW's colour and MANE_MID on BODY_DEEP's: a
+  black horse's mane is not lighter than its body, so the mane ramp collapses
+  into the body ramp. HOOF lands on CONTOUR's. Black's art uses eleven colours
+  where bay uses thirteen for exactly that reason. It is also what "duplicates
+  allowed on the target side" is for, and why `to` is not a key.
 
   This is not the pack's black sheet, and how far it is from it depends on which
   sheet you ask. Rendering bay's geometry through this map and diffing against
@@ -31,20 +33,34 @@ description: >-
 
   Both coats are ingested, under `black` and `black_render`, so the difference
   can be looked at rather than argued about.
+# Every collapse here was measured off the pack's own black sheet rather than
+# chosen, which is why they are accepted rather than fixed: changing them would
+# make this coat disagree with the artwork it was extracted from.
+accept_collapse:
+  BODY_SHADOW/MANE_LIGHT: >-
+    A black horse's mane is not lighter than its body. The pack draws both with
+    the same colour, and extraction found that rather than deciding it.
+  CONTOUR/HOOF: >-
+    At this value range the shaded outline and the hooves are both pure black in
+    the pack's art; there is no room below #101010 to keep them apart.
+  EYE_PUPIL/MANE_DARK: >-
+    Both land on near-black. The pupil is two pixels, so nothing reads either way.
+  MANE_DARK/OUTLINE: >-
+    Same cause as BODY_SHADOW/MANE_LIGHT, at the dark end of the mane ramp.
 source:
   sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_black.png
   sha256: 13e115472714c8847447efb43dc71bcbe62021143a4d41abac4d15e67bdc9d19
 map:
-  - {from: '#80472c', to: '#5e5e5e'}   # base body
-  - {from: '#190d06', to: '#101010'}
-  - {from: '#5e3420', to: '#444444'}
-  - {from: '#442516', to: '#262626'}
-  - {from: '#150a05', to: '#000000'}   # 137 px minority (1.25%) — the worst row
-  - {from: '#000000', to: '#000000'}   # outline — collapses onto #150a05
-  - {from: '#2a160d', to: '#111111'}
-  - {from: '#734e3d', to: '#444444'}   # highlight — collapses onto #5e3420
-  - {from: '#482f23', to: '#262626'}   # collapses onto #442516
-  - {from: '#ffffff', to: '#ffffff'}   # eye white
-  - {from: '#507a00', to: '#507a00'}   # eye iris
-  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded
-  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil
+  - {from: '#80472c', to: '#5e5e5e', role: BODY_BASE}
+  - {from: '#190d06', to: '#101010', role: OUTLINE}
+  - {from: '#5e3420', to: '#444444', role: BODY_SHADOW}
+  - {from: '#442516', to: '#262626', role: BODY_DEEP}
+  - {from: '#150a05', to: '#000000', role: CONTOUR}       # 137 px minority (1.25%) — the worst row
+  - {from: '#000000', to: '#000000', role: HOOF}          # collapses onto CONTOUR
+  - {from: '#2a160d', to: '#111111', role: MANE_DARK}
+  - {from: '#734e3d', to: '#444444', role: MANE_LIGHT}    # collapses onto BODY_SHADOW
+  - {from: '#482f23', to: '#262626', role: MANE_MID}      # collapses onto BODY_DEEP
+  - {from: '#ffffff', to: '#ffffff', role: EYE_WHITE}
+  - {from: '#507a00', to: '#507a00', role: EYE_IRIS}
+  - {from: '#334d00', to: '#334d00', role: EYE_IRIS_SHADED}
+  - {from: '#0b0b0b', to: '#0b0b0b', role: EYE_PUPIL}

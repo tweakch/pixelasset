@@ -113,6 +113,23 @@ three coats it ran on and is not a property of the colour (on socks_brown the ir
 itself splits 92/7). Pass-through still protects the rider and the tack, but for a
 category that is a fact about the artwork: colours outside the key space entirely.
 
+**Roles.** `coat_bay` names all thirteen — `BODY_*`, `MANE_*`, `OUTLINE`/`CONTOUR`/
+`HOOF`, `EYE_*` — in four groups, so a coat can be authored by intent rather than by
+hex. A derived coat may address rows by `role` instead of `from` and the loader
+resolves it, so `coat_flaxen.yaml` reads as "fox's body, three mane rows changed".
+`python -m pixelasset.coat propose --group body=#c89a4e --group mane=#f0e4c8` writes a
+whole coat from one colour per group, holding each row's luminance ratio so the ladder
+survives. The names are derived, not assumed — the measurement for each is in
+`coat_bay.yaml`, and the one that mattered is the marking test: socks and paint
+override 66-75% of the body group and 0.0-0.1% of `MANE_*`, which is what proves those
+three colours are the mane and tail rather than body shading.
+
+`propose_coat` and `collapses` report role pairs that bay separates and a coat does
+not — the mane's hatched strands stop reading against the neck. Not automatically a
+defect: a chestnut is self-coloured and a black horse's mane is not lighter than its
+body, so each is signed off in `accept_collapse:` with its reason (§27), and a test
+fails on both an unsigned collapse and a stale sign-off.
+
 ### The game is the conformance test
 
 `game/` reads the project schema directly. If it can load and animate an asset, the
@@ -158,23 +175,30 @@ in `production/`, which is where Path C output shows up.
 
 ## Open items — extend this list
 
-- The two coat mechanisms (Path C role ramps, pack colour maps) should become one. They
-  are now further apart in shape, not closer: the pack side is a measured 13-row colour
-  correspondence with a derived marking mask, the Path C side seven named roles over a
-  hand-authored template. The convergence worth having is probably *roles on the pack
-  side* — nothing today knows that `#80472c` is the body and `#000000` the outline, so
-  a coat cannot be authored by intent ("darken the points") only by hex.
+- The two coat mechanisms (Path C role ramps, pack colour maps) should become one, and
+  they are now much closer: both are role-keyed. The remaining differences are real
+  though — the pack has thirteen roles in four groups against Path C's seven flat ones,
+  a three-value outline against one, and a separate mane group where Path C folds mane,
+  tail and legs into `SHADOW_DARK`. A shared vocabulary is the next step; `roles:`
+  groups in `coat_bay.yaml` are the shape to converge on, since they are the ones
+  derived from artwork rather than chosen.
 - `stage_spritesheet` packs a single horizontal strip and `stage_metadata` emits one
   non-directional clip. A grid packer plus per-facing clips would let Path C assets be
   playable coats instead of viewer-only.
-- Socks and paint markings are now expressible on the **pack** side, derived from the
-  pack's own art (`config/markings/`). Flaxen manes still are not, on either side, and
-  for the same underlying reason in both: a colour that covers mane, tail *and* legs
-  cannot be changed for the mane alone. In the Path C template that colour is
-  `SHADOW_DARK`; on the pack side bay's thirteen colours are a shading ladder rather
-  than a body-part map — every one of them spreads across the whole cell (mean y
-  0.48-0.79), so no palette row is "the mane". Unlike socks, there is no shipped sheet
-  with a pale mane to derive a mask from, so that one has to be authored.
+- Socks and paint markings are expressible on the **pack** side, derived from the
+  pack's own art (`config/markings/`), and so are flaxen manes — `coat_flaxen` ships.
+  An earlier note here said manes were impossible because bay's thirteen colours are a
+  shading ladder rather than a body-part map. That was measured wrong: the per-colour
+  mean y over the whole sheet (0.48-0.79) mixes all four facings and flattens the
+  signal. Per frame and relative to each silhouette, `MANE_*` sits at 0.31 against the
+  body's 0.46, and socks and paint override 0.0-0.1% of it. Still open on the **Path C**
+  side, where `SHADOW_DARK` genuinely does cover mane, tail and legs in one template
+  token — that one needs a new token, not a palette.
+- Bay is a dark palette and its dark end is three values of outline, so with a body at
+  bay's own luminance there is almost nowhere to darken a mane into. Lightening has the
+  whole range above. That is headroom, not a rule about manes — `coat_white`'s mane is
+  darker than its body and reads fine at luminance 238. Worth knowing before authoring
+  a black-pointed coat.
 - Rendered coats derive from bay's geometry only; nothing generalises the choice. The
   blocker is real for the marked coats — the ink/reshade classifier needs a base coat
   that does not already contain the marking's colours, so it collapses against black.

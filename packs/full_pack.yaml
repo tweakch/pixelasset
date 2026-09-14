@@ -235,6 +235,16 @@ rendered_coats:
     palette: coat_fox
     marking: socks
 
+  # Same body as fox, with only the three MANE_* rows changed — the coat that
+  # role naming made possible. Before the roles were measured, a pale mane was
+  # believed to bleach the legs with it; socks and paint override 0.0-0.1% of
+  # those three colours, so they are the mane and the tail and nothing else.
+  flaxen:
+    label: Flaxen chestnut
+    from: bay
+    base_palette: coat_bay
+    palette: coat_flaxen
+
   dun_paint:
     label: Dun paint
     from: bay

@@ -117,6 +117,30 @@ def load_coat_palette(paths: ProjectPaths, name: str) -> dict[str, Any]:
     path = paths.palette_path(name)
     data = load_yaml(path)
     validate_schema(data, load_schema(paths, "coat_palette"), source=str(path))
+
+    if data["base"] == data["name"]:
+        # A base coat declares the key space AND the role vocabulary, so every
+        # row must carry both. Anything less and a derived coat addressing rows
+        # by role would resolve against a half-named ladder.
+        missing = [r.get("from") or r.get("role") for r in data["map"]
+                   if "from" not in r or "role" not in r]
+        if missing:
+            raise ValueError(
+                f"{path}: a base coat declares the roles, so every row needs "
+                f"both `from` and `role`. Missing on: {', '.join(map(str, missing))}"
+            )
+        declared = {r for group in (data.get("roles") or {}).values()
+                    for r in group}
+        used = {r["role"] for r in data["map"]}
+        if declared != used:
+            raise ValueError(
+                f"{path}: `roles` groups and `map` roles disagree — "
+                f"{sorted(used - declared) or 'nothing'} ungrouped, "
+                f"{sorted(declared - used) or 'nothing'} grouped but unused"
+            )
+    else:
+        data = _resolve_roles(paths, path, data)
+
     seen: dict[str, int] = {}
     for row in data["map"]:
         seen[row["from"]] = seen.get(row["from"], 0) + 1
@@ -128,6 +152,46 @@ def load_coat_palette(paths: ProjectPaths, name: str) -> dict[str, Any]:
             f"repeat."
         )
     return data
+
+
+def _resolve_roles(paths: ProjectPaths, path: Path, data: dict) -> dict:
+    """Turn a derived coat's `role` addressing into `from`, via its base.
+
+    Authoring by intent and diffing by colour want different things from the
+    same file — a human writes "MANE_LIGHT", a reviewer wants to see which bay
+    colour moved. Resolving here means the file can be written either way and
+    everything downstream still reads `from`, so `mapping_for`, the ordering
+    check and the extractor are all untouched.
+    """
+    base = load_coat_palette(paths, data["base"])
+    by_role = {r["role"]: r["from"] for r in base["map"]}
+
+    resolved = dict(data)
+    rows = []
+    for row in data["map"]:
+        if "role" in row and "from" in row:
+            # Both is allowed and useful — an extracted coat carries the role
+            # so it reads as more than hex — but it is checked rather than
+            # trusted, because two addressings for one row can disagree.
+            expected = by_role.get(row["role"])
+            if expected != row["from"]:
+                raise ValueError(
+                    f"{path}: row says role {row['role']} is {row['from']}, "
+                    f"but {data['base']} pairs that role with {expected}"
+                )
+            rows.append(row)
+            continue
+        if "role" in row:
+            if row["role"] not in by_role:
+                known = ", ".join(sorted(by_role))
+                raise ValueError(
+                    f"{path}: unknown role {row['role']!r} for base "
+                    f"{data['base']!r} (known: {known})"
+                )
+            row = {**row, "from": by_role[row["role"]]}
+        rows.append(row)
+    resolved["map"] = rows
+    return resolved
 
 
 def load_marking(paths: ProjectPaths, name: str) -> dict[str, Any]:

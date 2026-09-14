@@ -1,12 +1,12 @@
 name: coat_bay
-version: coat_bay_v2
+version: coat_bay_v3
 family: horse
 base: coat_bay
 description: >-
   Bay is the base coat: the key space every other coat of this family is written
-  against. `map` has one row per colour of the source sheet's visible palette,
-  ordered by pixel count descending — the order `decompose` produces — so two
-  coat files diff row for row.
+  against, and the one place the roles are declared. `map` has one row per colour
+  of the source sheet's visible palette, ordered by pixel count descending — the
+  order `decompose` produces — so two coat files diff row for row.
 
   Every row here is the identity, which is what makes bay the base rather than a
   claim about bay: rendering bay's geometry through this file reproduces the
@@ -19,26 +19,56 @@ description: >-
   asymmetry is enforced by the loader, not the schema, because JSON Schema has no
   way to say "unique by property".
 
-  The last four rows are the eye. They are written out rather than left to
-  pass-through: on socks_brown the iris colour #507a00 itself splits 92/7, so
-  "the eye is invariant" was true of three sheets, not of the colour. Passthrough
-  still exists, for colours outside this key space entirely — rider skin, halter,
-  rope, tack — which are measurably identical across bay and black on all three
-  sheet families.
+  ROLES. `role` says what each colour IS, so a coat can be authored by intent
+  rather than by hex — a derived coat may address a row by `role` instead of
+  `from`. The names are measured off the artwork, not assumed:
+
+  * The three OUTLINE/CONTOUR/HOOF colours hold 99.8% of every pixel on the
+    silhouette edge (60.7%, 19.1% and 20.0%). This art has a value-varying
+    outline rather than one outline colour. HOOF is also the lowest thing in the
+    frame — mean y 0.72 of the silhouette against the body's 0.46 — which is
+    what makes it the hooves and not just the darkest line.
+  * BODY_* are the only high-count colours with no presence on the edge at all
+    (0%, 0.2%, 0%). BODY_BASE is the dominant colour of the sheet at 42359 px.
+  * MANE_* are the mane and the tail, and this is the one that had to be proven
+    rather than eyeballed. Two independently drawn markings override 65.7% and
+    12.2% of BODY and 75.2% and 41.0% of the outline group, and 0.1% and 0.0% of
+    these three. A colour that both socks and paint leave alone is not body
+    shading. They also sit in the upper third of the silhouette (mean y 0.31),
+    they are the only desaturated colours in the palette (0.47 and 0.51 against
+    0.66-0.76 elsewhere), and MANE_LIGHT at luminance 84.6 is the lightest colour
+    on the horse — the body has no highlight, the mane does.
+  * The eye is four rows, written out rather than left to pass-through: on
+    socks_brown the iris colour itself splits 92/7, so "the eye is invariant" was
+    true of three sheets, not of the colour.
+
+  Pass-through still exists, for colours outside this key space entirely — rider
+  skin, halter, rope, tack — which are measurably identical across bay and black
+  on all three sheet families.
 source:
   sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
   sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
+
+# A group is what an intent addresses: "lighten the mane" is three rows, not
+# three hex values. `eye` is a group so that "leave the eye alone" is sayable.
+roles:
+  body: [BODY_BASE, BODY_SHADOW, BODY_DEEP]
+  mane: [MANE_LIGHT, MANE_MID, MANE_DARK]
+  line: [OUTLINE, CONTOUR, HOOF]
+  eye:  [EYE_WHITE, EYE_IRIS, EYE_IRIS_SHADED, EYE_PUPIL]
+
 map:
-  - {from: '#80472c', to: '#80472c'}   # base body                    42359 px
-  - {from: '#190d06', to: '#190d06'}   #                              23866
-  - {from: '#5e3420', to: '#5e3420'}   #                              21181
-  - {from: '#442516', to: '#442516'}   #                              17371
-  - {from: '#150a05', to: '#150a05'}   #                              10940
-  - {from: '#000000', to: '#000000'}   # outline, hooves, deepest      9360
-  - {from: '#2a160d', to: '#2a160d'}   #                               4442
-  - {from: '#734e3d', to: '#734e3d'}   # highlight — back, croup        3028
-  - {from: '#482f23', to: '#482f23'}   #                               2916
-  - {from: '#ffffff', to: '#ffffff'}   # eye white                       122
-  - {from: '#507a00', to: '#507a00'}   # eye iris                        120
-  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded                116
-  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil                         2
+  # from        to            role                px    lum   notes
+  - {from: '#80472c', to: '#80472c', role: BODY_BASE}        # 42359  81.2  dominant, never on the edge
+  - {from: '#190d06', to: '#190d06', role: OUTLINE}          # 23866  15.0  60.7% of all edge px
+  - {from: '#5e3420', to: '#5e3420', role: BODY_SHADOW}      # 21181  59.5
+  - {from: '#442516', to: '#442516', role: BODY_DEEP}        # 17371  42.5
+  - {from: '#150a05', to: '#150a05', role: CONTOUR}          # 10940  12.0  edge + interior jaw/neck lines
+  - {from: '#000000', to: '#000000', role: HOOF}              #  9360   0.0  hooves; darkest outline
+  - {from: '#2a160d', to: '#2a160d', role: MANE_DARK}        #  4442  25.6
+  - {from: '#734e3d', to: '#734e3d', role: MANE_LIGHT}       #  3028  84.6  lightest colour on the horse
+  - {from: '#482f23', to: '#482f23', role: MANE_MID}         #  2916  51.4
+  - {from: '#ffffff', to: '#ffffff', role: EYE_WHITE}        #   122
+  - {from: '#507a00', to: '#507a00', role: EYE_IRIS}         #   120
+  - {from: '#334d00', to: '#334d00', role: EYE_IRIS_SHADED}  #   116
+  - {from: '#0b0b0b', to: '#0b0b0b', role: EYE_PUPIL}        #     2
