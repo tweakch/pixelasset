@@ -90,6 +90,19 @@ Set `CHROME_PATH` to reuse an existing Chromium, `BASE_URL` to change the port.
 The test needs `?debug=1`, which exposes `window.pasture`; it is off on a normal
 load.
 
+## Two pages
+
+`index.html` is the pasture — playable coats only. It needs four facings, gaits
+and a riding or leading sheet, so it draws the ingested pack assets and filters
+the manifest on `mode`. A single-facing idle has no mode and is deliberately
+excluded; cycling one in with `C` would break the draw path.
+
+`viewer.html` draws **everything** in `assets/production/`, whatever shape it
+is — a 24x16 static prop, a 48x32 three-frame idle, a 100x79 leading sheet with
+eighteen clips across four facings. That is where Path C output shows up:
+before it existed, `hay_bale`, `horse_bay` and `horse_fox` were invisible to
+the game entirely, because the pasture could only draw rideable coats.
+
 ## The game is the conformance test
 
 This is a sandbox for seeing how assets look, but it earns its keep as the
@@ -97,8 +110,17 @@ consumer that proves the metadata contract is sufficient. If the game can load
 and animate an asset, the metadata carried enough — a stronger claim than "it
 looks right", and the thing that makes a hardcoded `frame_count: 1` visible.
 
-It reads the project's own schema (`schemas/metadata.schema.json`), the same
-document `stage_metadata` emits. It does not have a format of its own.
+Both pages read the project's own schema (`schemas/metadata.schema.json`), the
+same document `stage_metadata` emits. Neither has a format of its own, and the
+viewer covers both producers — so "it rendered" means "its metadata was
+sufficient" no matter which half of the pipeline made it.
+
+Two spritesheet layouts are real output and both are supported:
+
+```
+row_per_animation   one clip per row, frame 0 at the left     (ingest)
+single_strip        every frame in `order` sequence on row 0  (stage graph)
+```
 
 ```
 frame_size            [w, h]
