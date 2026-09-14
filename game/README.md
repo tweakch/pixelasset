@@ -11,10 +11,18 @@ The game loads **generated** assets, not the raw pack, so ingest first. ES
 modules also need a real origin, so `file://` will not work:
 
 ```bash
+python3 -m virtualenv .venv        # Ubuntu ships no `python`, and python3-venv needs sudo
+source .venv/bin/activate
 pip install -e ".[dev]"
+
 python -m pixelasset.ingest        # samples/Full_Pack -> assets/production/
+pixelasset build horse_fox         # the Path C assets too
 python -m http.server 8000         # http://localhost:8000/game/
 ```
+
+Without activating, prefix instead: `.venv/bin/python -m pixelasset.ingest`.
+System `python3` will not work — the package is installed into the venv, and
+Ubuntu 22.04 ships Pillow 9.0.1 where the pipeline needs 10 or newer.
 
 ## Controls
 
@@ -140,7 +148,7 @@ the artwork rather than a hand-tuned timer, and stays correct if fps changes.
 
 ## Where the assets come from
 
-Today: `python -m pixelasset.ingest`, which normalizes the third-party pack in
+Today: `python -m pixelasset.ingest` (inside the venv), which normalizes the pack in
 `samples/`. That is a second producer alongside the Path C stage graph, and it
 exists to exercise this contract end to end while the graph is still
 single-animation. Once `stage_spritesheet` packs a grid and `stage_metadata`
