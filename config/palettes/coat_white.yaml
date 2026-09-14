@@ -1,0 +1,51 @@
+name: coat_white
+version: coat_white_v1
+family: horse
+base: coat_bay
+description: >-
+  White — grey, really: the pack's white horse keeps a warm cast in its midtones
+  (#e1c29c, #998164, #6f5b44) rather than running to neutral, which is what stops
+  it reading as a paper cut-out. Read mechanically off the shipped sheet, same as
+  coat_black; worst minority branch 137 px, 1.25% of one source colour.
+
+  All thirteen targets are distinct, so nothing collapses here. White's art uses
+  fourteen colours to bay's thirteen — the extra one is the minority branch, not a
+  step, which is why more colours in the art does not mean more rows in the map.
+
+  This is not the pack's white sheet, and the gap is family-dependent. Rendering
+  bay's geometry through this map and diffing against the shipped white, over
+  pixels opaque in both:
+
+    no_equipment    207 of 135823   0.152%   <- the sheet this was measured from
+    ride            339 of 160975   0.211%
+    lead           5757 of 247988   2.321%
+    ride_jump     14941 of  67544  22.120%   <- the pack disagrees with itself
+
+  That last row is worth taking seriously: the pack's white jump sheet shades the
+  midtones a full step darker than its body sheets — #5e3420 to #808080 on 8441
+  px and #442516 to #555555 on 6442 px, against #aeaeae and #6a6a6a here. It is
+  the single largest self-inconsistency in the pack, and because `_ride` packs
+  the jump clips alongside the riding ones, it is visible in the built asset: the
+  rendered white's jump frames read lighter than the shipped white's. Flagged for
+  review rather than papered over. Pinning this coat to the jump sheet instead
+  would just move the problem onto the other twenty clips.
+
+  Note the capital W in the source filename. The pack spells this coat five
+  different ways; the filename is listed, never derived.
+source:
+  sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_White.png
+  sha256: 81439e8e75aeba8c846de3a27b36ad96f9164d5999e2eadb84af5a7256619c4c
+map:
+  - {from: '#80472c', to: '#eeeeee'}   # base body
+  - {from: '#190d06', to: '#262626'}
+  - {from: '#5e3420', to: '#aeaeae'}
+  - {from: '#442516', to: '#6a6a6a'}
+  - {from: '#150a05', to: '#3b3023'}   # 137 px minority (1.25%) — the worst row
+  - {from: '#000000', to: '#151515'}   # outline
+  - {from: '#2a160d', to: '#6f5b44'}
+  - {from: '#734e3d', to: '#e1c29c'}   # highlight — back, croup
+  - {from: '#482f23', to: '#998164'}
+  - {from: '#ffffff', to: '#ffffff'}   # eye white
+  - {from: '#507a00', to: '#507a00'}   # eye iris
+  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded
+  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil

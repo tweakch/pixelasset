@@ -1,0 +1,43 @@
+name: coat_dun
+version: coat_dun_v1
+family: horse
+base: coat_bay
+description: >-
+  Dun — desaturated olive-tan body with black points. Hand-authored, not
+  extracted: the pack ships no dun, so there is no sheet to read it off and
+  correctness here is a visual judgement (§22) rather than a measurement. This
+  is the worked example for authoring a coat against a key space instead of
+  extracting one.
+
+  Method, the same one that produced the fox: hold each bay step's luminance and
+  shift hue and saturation, so the shading ladder carries over and the artwork
+  holds its form. Every body row is within 0.5 of bay's luminance at hue 44° and
+  saturation 0.38. The three darkest rows are bay's points — mane, tail, lower
+  legs — and deepest shadow; a dun has black points, so they stay near-neutral
+  rather than taking the body's tint.
+
+  One deliberate deviation, and it is the thing luminance-holding gets wrong:
+  bay's highlight #734e3d sits only 3.4 luminance above its body #80472c, so the
+  two are separated by hue (saturated orange-brown against desaturated
+  mauve-brown) rather than by value. Desaturating both collapses that
+  separation and the dorsal highlight stops reading. So #734e3d is lifted to
+  luminance 107 instead of 85, widening the total range to 107 against bay's 85.
+  More contrast, not less, and the luminance ordering of all thirteen rows is
+  unchanged.
+source:
+  sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
+  sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
+map:
+  - {from: '#80472c', to: '#5a5138'}   # olive-tan body
+  - {from: '#190d06', to: '#0f0f0e'}   # points — near-neutral, not tinted
+  - {from: '#5e3420', to: '#423c29'}
+  - {from: '#442516', to: '#2f2b1d'}
+  - {from: '#150a05', to: '#0c0c0b'}   # points
+  - {from: '#000000', to: '#000000'}   # outline, hooves — left pure black
+  - {from: '#2a160d', to: '#1c1912'}
+  - {from: '#734e3d', to: '#7a6b45'}   # highlight — lifted, see description
+  - {from: '#482f23', to: '#393424'}
+  - {from: '#ffffff', to: '#ffffff'}   # eye white
+  - {from: '#507a00', to: '#507a00'}   # eye iris
+  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded
+  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil

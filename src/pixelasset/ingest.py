@@ -298,17 +298,20 @@ def metadata(asset: Asset, style_version: str = "0.1.0",
 
 
 def _recolour_for(paths, spec: dict) -> dict:
-    """Colour substitution for a rendered coat, from its two palette files."""
-    import yaml
+    """Colour substitution for a rendered coat, from its two palette files.
 
+    Loaded through `load_coat_palette` rather than bare yaml so a rendered coat
+    is schema-validated on the one path that actually builds it — including the
+    key-distinctness check, which is what stops a duplicated `from` colour from
+    silently collapsing the map and dropping a step.
+    """
     from .coat import mapping_between
+    from .config import load_coat_palette
 
-    def load(name):
-        return yaml.safe_load(
-            (paths.palettes_dir / f"{name}.yaml").read_text(encoding="utf-8")
-        )
-
-    return mapping_between(load(spec["base_palette"]), load(spec["palette"]))
+    return mapping_between(
+        load_coat_palette(paths, spec["base_palette"]),
+        load_coat_palette(paths, spec["palette"]),
+    )
 
 
 def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> list[dict]:
@@ -337,6 +340,22 @@ def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> lis
     for name, spec in (pack.get("rendered_coats") or {}).items():
         jobs.append((name, spec.get("label", name.title()), spec["from"],
                      _recolour_for(paths, spec)))
+
+    # Asset ids, manifest entries and the game's coat cycle are all keyed on the
+    # coat id (game/sprites.js groups the production index by `variant`), so a
+    # rendered coat sharing a shipped coat's name would not conflict — it would
+    # quietly replace it and drop one coat from the cycle. Rendered black and
+    # white are named apart for exactly this reason; fail loudly if that slips.
+    seen: dict[str, str] = {}
+    for coat_id, _label, source_coat, _recolour in jobs:
+        if coat_id in seen:
+            raise ValueError(
+                f"{pack_path.name}: coat id {coat_id!r} is declared twice "
+                f"(from {seen[coat_id]!r} and {source_coat!r}). Asset ids and "
+                f"manifest entries are keyed on it, so one would silently "
+                f"replace the other."
+            )
+        seen[coat_id] = source_coat
 
     results = []
     for coat, label, source_coat, recolour in jobs:

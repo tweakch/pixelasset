@@ -1,24 +1,34 @@
 name: coat_fox
-version: coat_fox_v1
+version: coat_fox_v2
 family: horse
-derived_from: coat_bay
+base: coat_bay
 description: >-
-  Fuchs / chestnut coat ramp. Same nine steps as coat_bay in the same order, so
-  step i substitutes for step i and the shading ladder carries over intact.
-  Proposed by holding each step's luminance and shifting hue to chestnut, then
-  hand-checked against the rendered sheets.
+  Fuchs / chestnut. Hand-authored, not extracted — the pack ships no fox, so
+  there is no sheet to read it off. Proposed by holding each bay step's luminance
+  and shifting hue to chestnut, then hand-checked against the rendered sheets.
 
-  The eye is in coat_bay's `invariant` and therefore absent from this file:
-  colours a coat does not name are passed through untouched, which is why the
-  rider's skin and the green eye survive the substitution without anyone having
-  to exclude them.
-ramp:
-  - '#b84a22'   # highlight — back, croup
-  - '#b44921'   # base body
-  - '#863619'
-  - '#732f15'
-  - '#622812'
-  - '#3f1a0c'
-  - '#290f05'
-  - '#240d05'
-  - '#090302'   # darkest — hooves, deepest shadow
+  The defining trait is the absence of black points: a bay has a black mane, tail
+  and lower legs where a fox has none, so the dark rows carry the difference.
+  Recolouring only the body reads as a bay with an odd tint.
+
+  Every row performs the same substitution coat_fox_v1 did by zipping two
+  nine-step ramps. The four eye rows were pass-through then and are identity rows
+  now — the same pixels, one fewer thing to remember. v2 is a format migration;
+  the fox did not change colour.
+source:
+  sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
+  sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
+map:
+  - {from: '#80472c', to: '#b44921'}   # chestnut body
+  - {from: '#190d06', to: '#290f05'}
+  - {from: '#5e3420', to: '#863619'}
+  - {from: '#442516', to: '#622812'}
+  - {from: '#150a05', to: '#240d05'}
+  - {from: '#000000', to: '#090302'}   # darkest — hooves, deepest shadow
+  - {from: '#2a160d', to: '#3f1a0c'}
+  - {from: '#734e3d', to: '#b84a22'}   # highlight — back, croup
+  - {from: '#482f23', to: '#732f15'}
+  - {from: '#ffffff', to: '#ffffff'}   # eye white
+  - {from: '#507a00', to: '#507a00'}   # eye iris
+  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded
+  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil

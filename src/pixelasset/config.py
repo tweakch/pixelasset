@@ -16,6 +16,7 @@ SCHEMA_FILES = {
     "asset": "asset.schema.json",
     "style_bible": "style_bible.schema.json",
     "palette": "palette.schema.json",
+    "coat_palette": "coat_palette.schema.json",
     "metadata": "metadata.schema.json",
     "review": "review.schema.json",
     "stage_graph": "stage_graph.schema.json",
@@ -95,6 +96,37 @@ def load_palette(
     resolved["roles"] = ramps[coat]
     resolved["coat"] = coat
     return resolved
+
+
+def load_coat_palette(paths: ProjectPaths, name: str) -> dict[str, Any]:
+    """Load a coat palette for an ingested family, validated.
+
+    Separate from `load_palette` because these are a different thing: a
+    measured colour-for-colour correspondence over a third-party sheet, not a
+    seven-role style ramp. See coat_palette.schema.json for why they are not
+    folded together.
+
+    Validation is split deliberately. The schema enforces shape — rows, hex
+    literals, required keys — and this function enforces the one rule the
+    schema cannot express: `from` is the key space and must be pairwise
+    distinct, while `to` may repeat freely. JSON Schema 2020-12 has no
+    unique-by-property keyword, so a duplicate key would otherwise slip
+    through, silently collapse the map and lose a step.
+    """
+    path = paths.palette_path(name)
+    data = load_yaml(path)
+    validate_schema(data, load_schema(paths, "coat_palette"), source=str(path))
+    seen: dict[str, int] = {}
+    for row in data["map"]:
+        seen[row["from"]] = seen.get(row["from"], 0) + 1
+    repeats = sorted(c for c, n in seen.items() if n > 1)
+    if repeats:
+        raise ValueError(
+            f"{path}: duplicate `from` colour(s) {', '.join(repeats)}. "
+            f"`from` is the key space and must be distinct; only `to` may "
+            f"repeat."
+        )
+    return data
 
 
 def load_asset_spec(paths: ProjectPaths, asset_id: str) -> dict[str, Any]:

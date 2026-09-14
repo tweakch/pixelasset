@@ -1,25 +1,44 @@
 name: coat_bay
-version: coat_bay_v1
+version: coat_bay_v2
 family: horse
-description: Bay coat ramp, extracted from the pack's own bay sheets. `ramp` is ordered lightest first
-  and is what a coat substitution replaces; `invariant` is shared by every coat in the family (the eye)
-  and is never substituted. Rendering the bay geometry with this palette reproduces the source sheets
-  byte for byte.
+base: coat_bay
+description: >-
+  Bay is the base coat: the key space every other coat of this family is written
+  against. `map` has one row per colour of the source sheet's visible palette,
+  ordered by pixel count descending — the order `decompose` produces — so two
+  coat files diff row for row.
+
+  Every row here is the identity, which is what makes bay the base rather than a
+  claim about bay: rendering bay's geometry through this file reproduces the
+  source sheets byte for byte, and that round trip is the only reason a
+  substituted palette is trustworthy at all.
+
+  `from` is the key space and must be pairwise distinct — a repeat would silently
+  collapse the map and lose a step. `to` may repeat, and does: a coat whose art
+  uses fewer colours than bay names the same target twice (see coat_black). That
+  asymmetry is enforced by the loader, not the schema, because JSON Schema has no
+  way to say "unique by property".
+
+  The last four rows are the eye. They are written out rather than left to
+  pass-through: on socks_brown the iris colour #507a00 itself splits 92/7, so
+  "the eye is invariant" was true of three sheets, not of the colour. Passthrough
+  still exists, for colours outside this key space entirely — rider skin, halter,
+  rope, tack — which are measurably identical across bay and black on all three
+  sheet families.
 source:
   sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
   sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
-ramp:
-- '#734e3d'
-- '#80472c'
-- '#5e3420'
-- '#482f23'
-- '#442516'
-- '#2a160d'
-- '#190d06'
-- '#150a05'
-- '#000000'
-invariant:
-- '#ffffff'
-- '#507a00'
-- '#334d00'
-- '#0b0b0b'
+map:
+  - {from: '#80472c', to: '#80472c'}   # base body                    42359 px
+  - {from: '#190d06', to: '#190d06'}   #                              23866
+  - {from: '#5e3420', to: '#5e3420'}   #                              21181
+  - {from: '#442516', to: '#442516'}   #                              17371
+  - {from: '#150a05', to: '#150a05'}   #                              10940
+  - {from: '#000000', to: '#000000'}   # outline, hooves, deepest      9360
+  - {from: '#2a160d', to: '#2a160d'}   #                               4442
+  - {from: '#734e3d', to: '#734e3d'}   # highlight — back, croup        3028
+  - {from: '#482f23', to: '#482f23'}   #                               2916
+  - {from: '#ffffff', to: '#ffffff'}   # eye white                       122
+  - {from: '#507a00', to: '#507a00'}   # eye iris                        120
+  - {from: '#334d00', to: '#334d00'}   # eye iris, shaded                116
+  - {from: '#0b0b0b', to: '#0b0b0b'}   # eye pupil                         2

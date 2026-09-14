@@ -148,14 +148,48 @@ coats:
 
 # Coats rendered by palette substitution rather than shipped by the pack.
 #
-# The pack's own coats are independently drawn — bay and black do not share an
-# alpha channel, and several bay colours map to more than one black colour, so
-# there is no recolouring between them. These are different: one geometry (the
-# coat named in `from`) rendered through another palette, so every sheet,
-# facing and frame comes out in the new coat for free.
+# One geometry — the coat named in `from` — seen through another palette, so
+# every sheet, facing and frame comes out in the new coat for free.
+#
+# Measured, not assumed: the pack's seven coats all share one geometry (alpha
+# differs from bay by 2-56 px of 135823), and bay's thirteen colours correspond
+# one-to-one to black's and white's, worst minority branch 137 px. So black and
+# white ARE recolourings of bay. Paint and socks are not: the same bay colour
+# becomes a white patch in one place and stays brown in another, which no
+# colour-keyed map can express — they need a mask, and `coat.extract_coat`
+# refuses them by name rather than picking a dominant branch.
+#
+# black_render and white_render are named apart from the pack's own `black` and
+# `white` on purpose. They are not the same artwork — rendered through bay's
+# geometry they differ from the shipped sheets on ~205 px (0.15%) — and sharing
+# a key would collide on asset id, collapsing the two into one manifest entry
+# that the game's coat cycle groups by. Keeping both is the point: the pack's
+# own black jump sheet disagrees with its no-equipment sheet on 3457 px, so the
+# rendered coat is the consistent one and the two can be compared side by side.
 rendered_coats:
   fox:
     label: Fox
     from: bay
     base_palette: coat_bay
     palette: coat_fox
+
+  black_render:
+    label: Black (rendered)
+    from: bay
+    base_palette: coat_bay
+    palette: coat_black
+
+  white_render:
+    label: White (rendered)
+    from: bay
+    base_palette: coat_bay
+    palette: coat_white
+
+  # Hand-authored rather than extracted — the pack ships no dun, so this one is
+  # a visual judgement (§22), not a measurement. It is the worked example for
+  # the thing the format actually unlocks: authoring a coat against a key space.
+  dun:
+    label: Dun
+    from: bay
+    base_palette: coat_bay
+    palette: coat_dun

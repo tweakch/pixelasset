@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelasset.local/schemas/coat_palette.schema.json",
+  "title": "Pixelasset coat palette (base colour → coat colour)",
+  "description": "A coat of an ingested third-party family: a colour-for-colour correspondence measured off one named sheet, applied to another coat's geometry. Deliberately NOT palette.schema.json's `coats`, which is a seven-role style ramp (OUTLINE…ACCENT) replacing `roles` wholesale for Path C's role-character templates. These colours have no roles and cannot acquire them — #5e3420 is not SHADOW in any style sense, it is whatever the pack's artist used. Folding them in would also mean re-measuring a third-party PNG bumps palette_v1, versioning the pack inside the §19 style record and changing every Path C asset's palette_version. §23 is satisfied instead by every coat of a family sharing one key space, named in `base` and checked for set equality.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "version", "family", "base", "source", "map"],
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "minLength": 1},
+    "family": {"type": "string", "minLength": 1},
+    "base": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The coat whose colours are this coat's keys. Every coat of a family declares the same base, and `map`'s key set is checked against it — that shared key space is the thing variants actually share."
+    },
+    "description": {"type": "string"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sheet", "sha256"],
+      "description": "The one sheet this coat was measured from. Pinned to a single sheet on purpose: the pack is not self-consistent across its own sheet families, so a coat that matched all of them cannot exist. Verified at extraction and in the tests, never during a build — see coat.verify_source.",
+      "properties": {
+        "sheet": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "map": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One row per colour of the base coat's visible palette, ordered by pixel count descending so two coat files diff row for row. A list of rows rather than a YAML mapping because yaml.safe_load silently keeps the last of duplicate keys, which is the exact failure that must be caught; and rather than two parallel lists because those encode the correspondence in line numbers, so a reorder would silently remap the whole coat. Key distinctness is enforced by the loader, not here: JSON Schema 2020-12 has no unique-by-property keyword, and uniqueItems only dedupes whole rows.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "A colour of the base coat. These are the keys and must be pairwise distinct."
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^#[0-9a-f]{6}$",
+            "description": "What that colour becomes. Duplicates are legal and intentional: a coat whose art uses fewer colours than the base names the same target twice, which is how black's eleven colours cover bay's thirteen steps."
+          }
+        }
+      }
+    }
+  }
+}
