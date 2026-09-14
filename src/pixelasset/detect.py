@@ -8,6 +8,7 @@ checked against the artwork.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 
 import numpy as np
@@ -119,6 +120,13 @@ def holds_multiple_sprites(
     return False
 
 
+# Grid detection brute-forces candidate cell sizes and walks cells in Python,
+# which is the slowest step in a build. It depends only on the alpha channel,
+# so the result is memoised on that: ingest builds sixteen assets from the same
+# few sheets, and a recoloured coat never changes alpha at all.
+_CELL_CACHE: dict[bytes, tuple[int, int]] = {}
+
+
 def detect_cell(
     a: np.ndarray,
     *,
@@ -141,6 +149,14 @@ def detect_cell(
       rather than filtered on it.
     """
     h, w = a.shape
+    key = hashlib.blake2b(
+        np.ascontiguousarray(a).tobytes(), digest_size=16,
+        key=f"{min_side}:{max_side}:{aspect}".encode(),
+    ).digest()
+    cached = _CELL_CACHE.get(key)
+    if cached is not None:
+        return cached
+
     widths = [d for d in range(min_side, max_side + 1) if w % d == 0]
     heights = [d for d in range(min_side, max_side + 1) if h % d == 0]
 
@@ -158,7 +174,8 @@ def detect_cell(
                 best = score
     if best is None:
         raise ValueError(f"no plausible grid for a {w}x{h} sheet")
-    return best[2], best[3]
+    _CELL_CACHE[key] = (best[2], best[3])
+    return _CELL_CACHE[key]
 
 
 def row_frames(a: np.ndarray, cw: int, ch: int, row: int) -> list[BBox]:

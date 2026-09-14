@@ -145,3 +145,17 @@ coats:
       ride: Horse_fullcolor_socks_black_barebackriding.png
       ride_jump: Horse_sock_black_barebackriding_jump.png
       lead: "Horse_socks_black​​_leading_blackhalter.png"
+
+# Coats rendered by palette substitution rather than shipped by the pack.
+#
+# The pack's own coats are independently drawn — bay and black do not share an
+# alpha channel, and several bay colours map to more than one black colour, so
+# there is no recolouring between them. These are different: one geometry (the
+# coat named in `from`) rendered through another palette, so every sheet,
+# facing and frame comes out in the new coat for free.
+rendered_coats:
+  fox:
+    label: Fox
+    from: bay
+    base_palette: coat_bay
+    palette: coat_fox
