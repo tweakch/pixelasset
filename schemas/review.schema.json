@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelasset.local/schemas/review.schema.json",
+  "title": "Pixelasset human review status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["asset", "status"],
+  "properties": {
+    "asset": { "type": "string" },
+    "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+    "gates": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "reason": { "type": "string" },
+    "updated_at": { "type": "string" }
+  }
+}

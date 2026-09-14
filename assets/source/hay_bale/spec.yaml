@@ -1,0 +1,60 @@
+id: hay_bale
+name: Hay Bale
+family: hay
+variant: bale
+category: prop
+description: Static oval hay bale in 3/4 iso-lite. One twine binding band must read at 24×16.
+
+canvas:
+  width: 24
+  height: 16
+
+pixel_size: 1
+view: "3/4_iso_lite"
+orientation: isometric_lite
+
+palette:
+  name: palette_v0
+  max_colors: 7
+
+lighting:
+  direction: top_left
+  intensity: medium
+
+outline:
+  enabled: true
+  color_role: OUTLINE
+
+animation:
+  enabled: false
+  animations: []
+
+anchors:
+  origin: bottom_center
+  points:
+    feet: [12, 15]
+
+background:
+  transparent: true
+  no_semi_alpha: true
+
+constraints:
+  proportions: oval bale, one binding band
+  silhouette:
+    must_read: oval bale + 1 binding band
+    min_bbox: [14, 10]
+    oval: true
+    binding_band: true
+    max_components: 1
+  forbidden_elements:
+    - anti_aliasing
+    - unauthorized_colors
+    - semi_transparent_pixels
+
+construction_path: C
+
+output:
+  png: true
+  spritesheet: true
+  metadata: true
+  preview: true
