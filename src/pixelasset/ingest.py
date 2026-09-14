@@ -106,7 +106,16 @@ def _anchor_for(sheets, cells, src, facing, clips_spec) -> tuple[int, int]:
     return cw // 2, lowest
 
 
-def build_asset(pack: dict, root: Path, coat_id: str, mode_id: str) -> Asset:
+def build_asset(
+    pack: dict, root: Path, coat_id: str, mode_id: str, *, recolour=None
+) -> Asset:
+    """Build one (coat, mode) asset.
+
+    `recolour` is a colour->colour mapping applied to every source sheet before
+    anything is measured. A rendered coat therefore goes through exactly the
+    same detection, normalization and validation as a shipped one — it is the
+    same geometry seen through another palette, not a second code path.
+    """
     coat = pack["coats"][coat_id]
     mode = pack["modes"][mode_id]
 
@@ -118,7 +127,12 @@ def build_asset(pack: dict, root: Path, coat_id: str, mode_id: str) -> Asset:
         if not path.exists():
             raise FileNotFoundError(f"{coat_id}/{src}: {path}")
         sources[src] = path
-        sheets[src] = detect.load_rgba(path)
+        sheet = detect.load_rgba(path)
+        if recolour:
+            from .coat import decompose, render, substitute
+            indexed = decompose(sheet)
+            sheet = render(indexed, substitute(indexed, recolour))
+        sheets[src] = sheet
         a = detect.alpha(sheets[src])
         declared = spec.get("cell", "auto")
         found = detect.detect_cell(a)
@@ -282,6 +296,20 @@ def metadata(asset: Asset, style_version: str = "0.1.0",
     }
 
 
+def _recolour_for(paths, spec: dict) -> dict:
+    """Colour substitution for a rendered coat, from its two palette files."""
+    import yaml
+
+    from .coat import mapping_between
+
+    def load(name):
+        return yaml.safe_load(
+            (paths.palettes_dir / f"{name}.yaml").read_text(encoding="utf-8")
+        )
+
+    return mapping_between(load(spec["base_palette"]), load(spec["palette"]))
+
+
 def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> list[dict]:
     """Build every (coat, mode) asset described by a pack file.
 
@@ -300,18 +328,31 @@ def ingest_pack(pack_path: Path, paths, *, only: list[str] | None = None) -> lis
     root = paths.root / pack["pack"]["root"]
     schema = load_schema(paths, "metadata")
 
+    # (coat_id, label, source_coat, recolour-or-None)
+    jobs: list[tuple[str, str, str, dict | None]] = [
+        (c, pack["coats"][c]["label"], c, None) for c in pack["coats"]
+    ]
+    for name, spec in (pack.get("rendered_coats") or {}).items():
+        jobs.append((name, spec.get("label", name.title()), spec["from"],
+                     _recolour_for(paths, spec)))
+
     results = []
-    for coat in pack["coats"]:
+    for coat, label, source_coat, recolour in jobs:
         for mode in pack["modes"]:
             asset_id = f"horse_{coat}_{mode}"
             if only and asset_id not in only and coat not in only and mode not in only:
                 continue
-            asset = build_asset(pack, root, coat, mode)
+            asset = build_asset(pack, root, source_coat, mode, recolour=recolour)
+            asset.id = asset_id
+            asset.coat = coat
+            asset.coat_label = label
             sheet = render_sheet(asset)
             meta = metadata(asset)
             validate_schema(meta, schema, source=f"{asset_id} metadata")
 
-            paths.ensure_asset_dirs(asset_id)
+            # Deliberately not ensure_asset_dirs(): an ingested asset has no
+            # spec, so creating assets/source/<id>/ for it litters the one
+            # directory that holds hand-authored, version-controlled input.
             work = paths.working_dir(asset_id)
             work.mkdir(parents=True, exist_ok=True)
             sheet.save(work / "spritesheet.png")

@@ -1,0 +1,25 @@
+name: coat_bay
+version: coat_bay_v1
+family: horse
+description: Bay coat ramp, extracted from the pack's own bay sheets. `ramp` is ordered lightest first
+  and is what a coat substitution replaces; `invariant` is shared by every coat in the family (the eye)
+  and is never substituted. Rendering the bay geometry with this palette reproduces the source sheets
+  byte for byte.
+source:
+  sheet: samples/Full_Pack/Horse_Sprite_Asset/Horses_no_equipment/Horse_fullcolor_brown.png
+  sha256: 6faecb63e8517226e0b126d62d808db9fa5fb22819f4bf455d103bd53b8b80dc
+ramp:
+- '#734e3d'
+- '#80472c'
+- '#5e3420'
+- '#482f23'
+- '#442516'
+- '#2a160d'
+- '#190d06'
+- '#150a05'
+- '#000000'
+invariant:
+- '#ffffff'
+- '#507a00'
+- '#334d00'
+- '#0b0b0b'

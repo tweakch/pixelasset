@@ -1,0 +1,24 @@
+name: coat_fox
+version: coat_fox_v1
+family: horse
+derived_from: coat_bay
+description: >-
+  Fuchs / chestnut coat ramp. Same nine steps as coat_bay in the same order, so
+  step i substitutes for step i and the shading ladder carries over intact.
+  Proposed by holding each step's luminance and shifting hue to chestnut, then
+  hand-checked against the rendered sheets.
+
+  The eye is in coat_bay's `invariant` and therefore absent from this file:
+  colours a coat does not name are passed through untouched, which is why the
+  rider's skin and the green eye survive the substitution without anyone having
+  to exclude them.
+ramp:
+  - '#b84a22'   # highlight — back, croup
+  - '#b44921'   # base body
+  - '#863619'
+  - '#732f15'
+  - '#622812'
+  - '#3f1a0c'
+  - '#290f05'
+  - '#240d05'
+  - '#090302'   # darkest — hooves, deepest shadow
