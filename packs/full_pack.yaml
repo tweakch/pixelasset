@@ -1,0 +1,147 @@
+# Source description for the sample horse pack.
+#
+# PIPELINE.md §18: "No project art rules hard-coded in scripts." Everything a
+# script cannot measure lives here — which row is a walk, how fast it plays,
+# which file belongs to which coat. Everything it *can* measure (cell size,
+# frame counts, anchors, airborne windows) is deliberately absent and is
+# derived from the pixels at ingest, so a wrong row here fails loudly.
+
+pack:
+  id: full_pack
+  root: samples/Full_Pack
+
+# `cell: auto` means detect and record. Give an explicit [w, h] to pin it and
+# have ingest fail if the artwork disagrees.
+sources:
+  ride:
+    dir: Horse_Sprite_Riding_Asset/Horses_barebackriding
+    cell: auto
+  ride_jump:
+    dir: Horse_Sprite_Jump_Asset/Horse_and_Rider/Horses_barebackriding
+    cell: auto
+  lead:
+    dir: Horse_Sprite_Leading_Asset/Horses_halter
+    cell: auto
+
+# `frames` is omitted everywhere it can be counted. It is only given for the
+# jump clips, which are a deliberate sub-range: columns 0-4 of those rows are
+# run-up gallop strides, so the clip starts near take-off instead of replaying
+# an approach the player already rode.
+modes:
+  ride:
+    label: Riding
+    clips:
+      east:
+        idle:   {src: ride, row: 0, fps: 5}
+        graze:  {src: ride, row: 1, fps: 7}
+        walk:   {src: ride, row: 2, fps: 9}
+        trot:   {src: ride, row: 3, fps: 12}
+        gallop: {src: ride, row: 4, fps: 14}
+        jump:   {src: ride_jump, row: 0, first: 5, frames: 8, fps: 14, loop: false}
+      west:
+        idle:   {src: ride, row: 5, fps: 5}
+        graze:  {src: ride, row: 6, fps: 7}
+        walk:   {src: ride, row: 7, fps: 9}
+        trot:   {src: ride, row: 8, fps: 12}
+        gallop: {src: ride, row: 9, fps: 14}
+        jump:   {src: ride_jump, row: 1, first: 5, frames: 8, fps: 14, loop: false}
+      south:
+        idle:   {src: ride, row: 10, fps: 3}
+        walk:   {src: ride, row: 11, fps: 9}
+        trot:   {src: ride, row: 12, fps: 12}
+        gallop: {src: ride, row: 13, fps: 14}
+        jump:   {src: ride_jump, row: 2, first: 2, frames: 10, fps: 14, loop: false}
+      north:
+        idle:   {src: ride, row: 14, fps: 1}
+        walk:   {src: ride, row: 15, fps: 9}
+        trot:   {src: ride, row: 16, fps: 12}
+        gallop: {src: ride, row: 17, fps: 14}
+        jump:   {src: ride_jump, row: 3, first: 4, frames: 10, fps: 14, loop: false}
+
+  lead:
+    label: On foot
+    # East and west carry eight rows each, north and south only five. `graze`
+    # is authored solely on the side-on blocks; `pet` exists in all four.
+    clips:
+      east:
+        idle:  {src: lead, row: 0,  fps: 4}
+        graze: {src: lead, row: 1,  fps: 7}
+        pet:   {src: lead, row: 3,  fps: 8}
+        walk:  {src: lead, row: 4,  fps: 9}
+        trot:  {src: lead, row: 6,  fps: 12}
+      west:
+        idle:  {src: lead, row: 8,  fps: 4}
+        graze: {src: lead, row: 9,  fps: 7}
+        pet:   {src: lead, row: 11, fps: 8}
+        walk:  {src: lead, row: 12, fps: 9}
+        trot:  {src: lead, row: 14, fps: 12}
+      south:
+        idle:  {src: lead, row: 16, fps: 3}
+        # The handler leans toward the horse to pet it, which in a top-down
+        # view means stepping closer — so their feet sit 5px above the walking
+        # baseline. Authored, not drift. Signed off here rather than silently
+        # tolerated, so the finding stays in the report with its reason.
+        pet:
+          src: lead
+          row: 18
+          fps: 8
+          accept:
+            CLIP_FLOATS: >-
+              handler steps toward the horse to reach its nose; feet sit 5px
+              above the walking baseline by design
+        walk:  {src: lead, row: 19, fps: 9}
+        trot:  {src: lead, row: 20, fps: 12}
+      north:
+        idle:  {src: lead, row: 21, fps: 1}
+        pet:   {src: lead, row: 23, fps: 8}
+        walk:  {src: lead, row: 24, fps: 9}
+        trot:  {src: lead, row: 25, fps: 12}
+
+# The same coat is spelled five different ways across this pack, so filenames
+# are listed rather than derived. Six of the leading files carry two U+200B
+# zero-width spaces before the extension — written as escapes so they are
+# visible here. A pipeline that globbed these would silently miss them, which
+# is the whole reason the canonical names on the other side of ingest exist.
+coats:
+  bay:
+    label: Bay
+    files:
+      ride: Horse_fullcolor_brown_barebackriding.png
+      ride_jump: Horse_fullcolor_brown_barebackriding_jump.png
+      lead: Horse_fullcolor_brown_leading_blacknhalter.png
+  black:
+    label: Black
+    files:
+      ride: Horse_fullcolor_black_barebackriding.png
+      ride_jump: Horse_fullcolor_black_barebackriding_jump.png
+      lead: Horse_fullcolor_black_leading_blackhalter.png
+  white:
+    label: White
+    files:
+      ride: Horse_fullcolor_white_barebackriding.png
+      ride_jump: Horse_fullcolor_white_barebackriding_jump.png
+      lead: Horse_fullcolor_white_leading_blacknnhalter.png
+  paint_brown:
+    label: Paint
+    files:
+      ride: Horse_fullcolor_paint_brown_barebackriding.png
+      ride_jump: Horse_paint_brown_barebackriding_jump.png
+      lead: "Horse_paint_brown​​_leading_blackhalter.png"
+  paint_black:
+    label: Paint Black
+    files:
+      ride: Horse_fullcolor_paint_black_barebackriding.png
+      ride_jump: Horse_paint_black_barebackriding_jump.png
+      lead: "Horse_paint_back​​_leading_blackhalter.png"
+  socks_brown:
+    label: Socks
+    files:
+      ride: Horse_fullcolor_socks_brown_barebackriding.png
+      ride_jump: Horse_sock_brown_barebackriding_jump.png
+      lead: "Horse_socks_brown​​_leading_blackhalter.png"
+  socks_black:
+    label: Socks Black
+    files:
+      ride: Horse_fullcolor_socks_black_barebackriding.png
+      ride_jump: Horse_sock_black_barebackriding_jump.png
+      lead: "Horse_socks_black​​_leading_blackhalter.png"

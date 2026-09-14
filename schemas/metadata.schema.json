@@ -15,51 +15,168 @@
     "construction_path"
   ],
   "properties": {
-    "id": { "type": "string" },
-    "name": { "type": "string" },
-    "family": { "type": "string" },
-    "variant": { "type": "string" },
-    "category": { "type": "string" },
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "family": {
+      "type": "string"
+    },
+    "variant": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
     "frame_size": {
       "type": "array",
       "minItems": 2,
       "maxItems": 2,
-      "items": { "type": "integer", "minimum": 1 }
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      }
     },
-    "frame_count": { "type": "integer", "minimum": 1 },
+    "frame_count": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "spritesheet": {
+      "type": "object",
+      "description": "How spritesheet.png is laid out. Absent means the sheet is a single horizontal strip in `animations[0].order` sequence, which is the Slice 1/2 shape. A consumer that loads the packed sheet rather than the loose frames has no other way to map `order` onto pixels.",
+      "required": [
+        "file",
+        "columns",
+        "rows",
+        "layout"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "layout": {
+          "type": "string",
+          "enum": [
+            "row_per_animation",
+            "single_strip"
+          ]
+        }
+      }
+    },
     "animations": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "frames", "fps", "loop", "order"],
+        "required": [
+          "name",
+          "frames",
+          "fps",
+          "loop",
+          "order"
+        ],
         "properties": {
-          "name": { "type": "string" },
-          "frames": { "type": "integer" },
-          "fps": { "type": "number" },
-          "loop": { "type": "boolean" },
+          "name": {
+            "type": "string"
+          },
+          "facing": {
+            "type": "string",
+            "enum": [
+              "east",
+              "west",
+              "south",
+              "north"
+            ],
+            "description": "Direction this clip faces. Omit for a non-directional asset \u2014 a prop has no facing, and requiring one would invalidate every static asset."
+          },
+          "row": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Row index of this clip in the packed sheet. Required when spritesheet.layout is row_per_animation."
+          },
+          "frames": {
+            "type": "integer"
+          },
+          "fps": {
+            "type": "number"
+          },
+          "loop": {
+            "type": "boolean"
+          },
+          "off_ground": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "description": "Inclusive [first, last] frame indices where the subject has left the ground, measured from each frame's alpha bounding box against the clip baseline. Collision therefore tracks the artwork instead of a hand-tuned timer, and stays correct when fps changes."
+          },
           "order": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+              "type": "string"
+            }
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "anchors": {
       "type": "object",
-      "required": ["origin", "points"],
+      "required": [
+        "origin",
+        "points"
+      ],
       "properties": {
-        "origin": { "type": "string" },
-        "points": { "type": "object" }
+        "origin": {
+          "type": "string"
+        },
+        "points": {
+          "type": "object"
+        }
       }
     },
-    "palette_name": { "type": "string" },
-    "palette_version": { "type": "string" },
-    "style_version": { "type": "string" },
-    "pipeline_version": { "type": "string" },
-    "asset_version": { "type": "string" },
-    "construction_path": { "type": "string", "enum": ["A", "B", "C"] },
-    "view": { "type": "string" },
-    "reproducibility": { "$ref": "#/$defs/reproducibility" }
+    "palette_name": {
+      "type": "string"
+    },
+    "palette_version": {
+      "type": "string"
+    },
+    "style_version": {
+      "type": "string"
+    },
+    "pipeline_version": {
+      "type": "string"
+    },
+    "asset_version": {
+      "type": "string"
+    },
+    "construction_path": {
+      "type": "string",
+      "enum": [
+        "A",
+        "B",
+        "C"
+      ]
+    },
+    "view": {
+      "type": "string"
+    },
+    "reproducibility": {
+      "$ref": "#/$defs/reproducibility"
+    }
   },
   "$defs": {
     "reproducibility": {
@@ -76,19 +193,60 @@
         "created_at"
       ],
       "properties": {
-        "asset_id": { "type": "string" },
-        "pipeline_version": { "type": "string" },
-        "style_version": { "type": "string" },
-        "palette_version": { "type": "string" },
-        "asset_version": { "type": "string" },
-        "construction_path": { "type": "string" },
-        "generator": { "type": ["string", "null"] },
-        "model": { "type": ["string", "null"] },
-        "prompt": { "type": ["string", "null"] },
-        "seed": { "type": ["integer", "null"] },
-        "concept_hash": { "type": ["string", "null"] },
-        "source_hash": { "type": "string" },
-        "created_at": { "type": "string" }
+        "asset_id": {
+          "type": "string"
+        },
+        "pipeline_version": {
+          "type": "string"
+        },
+        "style_version": {
+          "type": "string"
+        },
+        "palette_version": {
+          "type": "string"
+        },
+        "asset_version": {
+          "type": "string"
+        },
+        "construction_path": {
+          "type": "string"
+        },
+        "generator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "prompt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "concept_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_hash": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string"
+        }
       }
     }
   }
