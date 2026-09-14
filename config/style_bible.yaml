@@ -1,0 +1,57 @@
+version: "0.1.0"
+name: Hof
+theme: Soft Equine Charm
+game: Wunderhof
+mood: flat/friendly
+
+geometry:
+  tile_unit: 16
+  native_grid: [16, 16]
+  character_height_tiles: 2
+  object_scale_budget:
+    prop_max: [24, 16]
+  proportions:
+    hay_bale: oval bale with one binding band
+  proportion_ref: >-
+    Horse (later) stands on the right with ground contact. Proportion
+    reference only — not a pixel source. No live SVG swap.
+  perspective: "3/4_iso_lite"
+  camera_angle: "3/4"
+  ground_contact: bottom_center
+  max_object_dimensions: [24, 16]
+
+rendering:
+  outline:
+    enabled: true
+    role: OUTLINE
+  anti_aliasing: false
+  dithering: false
+  shadow_highlight: role_based
+  texture:
+    density: sparse
+    cluster_min_px: 2
+  edge_treatment: hard
+  background: transparent
+  semi_alpha: false
+
+palette:
+  name: palette_v0
+  roles:
+    - OUTLINE
+    - SHADOW_DARK
+    - SHADOW
+    - BASE
+    - LIGHT
+    - HIGHLIGHT
+    - ACCENT
+
+construction:
+  path_c_template_tokens:
+    O: OUTLINE
+    D: SHADOW_DARK
+    S: SHADOW
+    B: BASE
+    L: LIGHT
+    H: HIGHLIGHT
+    A: ACCENT
+    ".": null

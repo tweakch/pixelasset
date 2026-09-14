@@ -1,0 +1,49 @@
+project:
+  name: Wunderhof
+  tile_unit: 16
+  native_defaults:
+    width: 24
+    height: 16
+    view: "3/4_iso_lite"
+    origin: bottom_center
+
+pixel_art:
+  max_colors: 7
+  palette: palette_v0
+  outline:
+    enabled: true
+    color_role: OUTLINE
+  anti_aliasing: false
+  preview_filter: nearest
+  preview_scale: 4
+
+generation:
+  provider: none
+  model: null
+  seed: 0
+  construction_path: C
+
+validation:
+  strict: true
+  max_anchor_drift_px: 1
+  max_components: 1
+  max_colors: 7
+  min_occupied_pixels: 80
+  min_bbox_width: 14
+  min_bbox_height: 10
+
+review:
+  high_value_gates:
+    - palette
+    - silhouette
+  # Path C templates are the human-authored source of truth (Slice 1).
+  auto_approve_path_c: true
+
+export:
+  targets: []
+
+versions:
+  pipeline: "0.1.0"
+  style: "0.1.0"
+  palette: palette_v0
+  asset: "0.1.0"

@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelasset.local/schemas/style_bible.schema.json",
+  "title": "Pixelasset style bible",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "name", "theme", "geometry", "rendering", "palette", "construction"],
+  "properties": {
+    "version": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "theme": { "type": "string", "minLength": 1 },
+    "game": { "type": "string" },
+    "mood": { "type": "string" },
+    "geometry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tile_unit",
+        "native_grid",
+        "perspective",
+        "camera_angle",
+        "ground_contact",
+        "max_object_dimensions"
+      ],
+      "properties": {
+        "tile_unit": { "type": "integer", "minimum": 1 },
+        "native_grid": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "character_height_tiles": { "type": "number" },
+        "object_scale_budget": { "type": "object" },
+        "proportions": { "type": "object" },
+        "proportion_ref": { "type": "string" },
+        "perspective": { "type": "string" },
+        "camera_angle": { "type": "string" },
+        "ground_contact": { "type": "string" },
+        "max_object_dimensions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "rendering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outline", "anti_aliasing"],
+      "properties": {
+        "outline": {
+          "type": "object",
+          "required": ["enabled", "role"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "role": { "type": "string", "const": "OUTLINE" }
+          }
+        },
+        "anti_aliasing": { "type": "boolean" },
+        "dithering": { "type": "boolean" },
+        "shadow_highlight": { "type": "string" },
+        "texture": {
+          "type": "object",
+          "properties": {
+            "density": { "type": "string" },
+            "cluster_min_px": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "edge_treatment": { "type": "string" },
+        "background": { "type": "string" },
+        "semi_alpha": { "type": "boolean" }
+      }
+    },
+    "palette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "roles"],
+      "properties": {
+        "name": { "type": "string" },
+        "roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "construction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path_c_template_tokens"],
+      "properties": {
+        "path_c_template_tokens": {
+          "type": "object",
+          "additionalProperties": {
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  }
+}

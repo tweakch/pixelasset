@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelasset.local/schemas/project.schema.json",
+  "title": "Pixelasset project configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["project", "pixel_art", "generation", "validation", "versions"],
+  "properties": {
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "tile_unit", "native_defaults"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "tile_unit": { "type": "integer", "minimum": 1 },
+        "native_defaults": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "view", "origin"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 },
+            "view": { "type": "string", "minLength": 1 },
+            "origin": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "pixel_art": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_colors", "palette", "outline", "anti_aliasing", "preview_filter"],
+      "properties": {
+        "max_colors": { "type": "integer", "minimum": 1 },
+        "palette": { "type": "string", "minLength": 1 },
+        "outline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "color_role"],
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "color_role": { "type": "string", "const": "OUTLINE" }
+          }
+        },
+        "anti_aliasing": { "type": "boolean" },
+        "preview_filter": { "type": "string", "enum": ["nearest"] },
+        "preview_scale": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["construction_path"],
+      "properties": {
+        "provider": { "type": ["string", "null"] },
+        "model": { "type": ["string", "null"] },
+        "seed": { "type": ["integer", "null"] },
+        "construction_path": { "type": "string", "enum": ["A", "B", "C"] }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strict", "max_anchor_drift_px", "max_components", "max_colors"],
+      "properties": {
+        "strict": { "type": "boolean" },
+        "max_anchor_drift_px": { "type": "number", "minimum": 0 },
+        "max_components": { "type": "integer", "minimum": 1 },
+        "max_colors": { "type": "integer", "minimum": 1 },
+        "min_occupied_pixels": { "type": "integer", "minimum": 1 },
+        "min_bbox_width": { "type": "integer", "minimum": 1 },
+        "min_bbox_height": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "high_value_gates": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "auto_approve_path_c": { "type": "boolean" }
+      }
+    },
+    "export": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targets": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pipeline", "style", "palette", "asset"],
+      "properties": {
+        "pipeline": { "type": "string", "minLength": 1 },
+        "style": { "type": "string", "minLength": 1 },
+        "palette": { "type": "string", "minLength": 1 },
+        "asset": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

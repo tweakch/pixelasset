@@ -1,0 +1,14 @@
+name: palette_v0
+version: palette_v0
+tile_unit: 16
+description: Frozen Hof (Soft Equine Charm) role palette. Assets may only use these role RGBs.
+
+roles:
+  # Hex is documentation; RGB arrays are canonical.
+  OUTLINE: [58, 47, 36]          # #3A2F24
+  SHADOW_DARK: [107, 78, 42]     # #6B4E2A
+  SHADOW: [143, 107, 52]         # #8F6B34
+  BASE: [196, 160, 74]           # #C4A04A
+  LIGHT: [220, 200, 106]         # #DCC86A
+  HIGHLIGHT: [240, 230, 168]     # #F0E6A8
+  ACCENT: [166, 124, 82]         # #A67C52 twine/binding

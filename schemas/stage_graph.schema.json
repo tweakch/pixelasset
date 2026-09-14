@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pixelasset.local/schemas/stage_graph.schema.json",
+  "title": "Pixelasset stage graph record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["asset", "stages"],
+  "properties": {
+    "asset": { "type": "string" },
+    "pipeline_version": { "type": "string" },
+    "stages": {
+      "type": "array",
+      "minItems": 17,
+      "maxItems": 17,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "index", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "index": { "type": "integer", "minimum": 1, "maximum": 17 },
+          "status": {
+            "type": "string",
+            "enum": ["PENDING", "RUNNING", "PASSED", "FAILED", "NOT_APPLICABLE"]
+          },
+          "reason": { "type": ["string", "null"] },
+          "started_at": { "type": ["string", "null"] },
+          "finished_at": { "type": ["string", "null"] },
+          "artifacts": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
