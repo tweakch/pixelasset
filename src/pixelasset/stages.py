@@ -136,6 +136,19 @@ def _clear_dir(path: Path) -> None:
             child.rmdir()
 
 
+def _template_path(ctx: BuildContext) -> Path:
+    """Where this asset's Path C template lives.
+
+    `template_from` lets coats share one geometry source. Copying the template
+    per coat would let variants drift apart, which §23 forbids: differences
+    between variants must be specification-driven, not accidental. The shared
+    file still feeds source_hash, so the §19 record covers the geometry an
+    asset was actually built from.
+    """
+    assert ctx.spec is not None
+    return ctx.paths.template_path(ctx.spec.get("template_from") or ctx.asset_id)
+
+
 def _na_for_path_c(ctx: BuildContext, stage_id: str) -> StageResult | None:
     path = (ctx.spec or {}).get("construction_path") or ctx.project["generation"][
         "construction_path"
@@ -161,7 +174,8 @@ def stage_asset_specification(ctx: BuildContext) -> StageResult:
 def stage_semantic_interpretation(ctx: BuildContext) -> StageResult:
     assert ctx.spec is not None
     palette_name = ctx.spec["palette"]["name"]
-    ctx.palette = load_palette(ctx.paths, palette_name)
+    coat = ctx.spec["palette"].get("coat")
+    ctx.palette = load_palette(ctx.paths, palette_name, coat)
     path = ctx.spec["construction_path"]
     na_stages = []
     if path == "C":
@@ -182,6 +196,7 @@ def stage_semantic_interpretation(ctx: BuildContext) -> StageResult:
         "animation_enabled": ctx.spec["animation"]["enabled"],
         "not_applicable_stages": na_stages,
         "palette_name": palette_name,
+        "palette_coat": coat,
         "roles": ctx.palette["roles"],
         "outline_enabled": ctx.spec["outline"]["enabled"],
         "background_transparent": ctx.spec["background"]["transparent"],
@@ -218,7 +233,7 @@ def stage_pixel_art_construction(ctx: BuildContext) -> StageResult:
     generator = get_generator(path)
     ctx.generator_name = generator.name
     template_text = None
-    template_path = ctx.paths.template_path(ctx.asset_id)
+    template_path = _template_path(ctx)
     if template_path.is_file():
         template_text = template_path.read_text(encoding="utf-8")
     image = generator.construct(
@@ -433,7 +448,7 @@ def stage_metadata(ctx: BuildContext) -> StageResult:
     from pixelasset.reproducibility import sha256_bytes
 
     source_parts = [ctx.paths.spec_path(ctx.asset_id).read_bytes()]
-    template = ctx.paths.template_path(ctx.asset_id)
+    template = _template_path(ctx)
     if template.is_file():
         source_parts.append(template.read_bytes())
     source_hash = sha256_bytes(b"\n".join(source_parts))

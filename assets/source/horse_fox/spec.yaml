@@ -1,0 +1,82 @@
+id: horse_fox
+name: Horse Fox
+family: horse
+variant: fox
+category: character
+description: >-
+  Fuchs / chestnut horse, side view facing right, ground contact. Idle only
+  (no Walk). Colour variant of horse_bay: identical geometry, read from the
+  same template, differing only in which palette ramp the roles resolve to.
+  A fox has no black points — mane, tail and lower legs are chestnut, which
+  is the SHADOW_DARK role and the whole of the difference.
+
+canvas:
+  width: 48
+  height: 32
+
+pixel_size: 1
+view: side
+orientation: facing_right
+
+palette:
+  name: palette_v1
+  coat: fox
+  max_colors: 7
+
+lighting:
+  direction: top_left
+  intensity: medium
+
+outline:
+  enabled: true
+  color_role: OUTLINE
+
+animation:
+  enabled: true
+  animations:
+    - name: idle
+      frames: 3
+      fps: 4
+      loop: true
+
+anchors:
+  origin: bottom_center
+  points:
+    feet: [23, 31]
+
+background:
+  transparent: true
+  no_semi_alpha: true
+
+constraints:
+  proportions: >-
+    Side-view horse facing right; head/muzzle on the right, tail on the left,
+    four legs with hoof ground contact. Native 48×32 is tight — keep clusters
+    ≥2px and do not redraw idle frames. Geometry is horse_bay's; never fork
+    the template to change a colour.
+  silhouette:
+    must_read: horse side-view facing right, ground contact at hooves
+    min_bbox: [40, 28]
+    oval: false
+    binding_band: false
+    horse: true
+    facing: right
+    min_hoof_clusters: 3
+    max_hoof_clusters: 4
+    max_components: 1
+  forbidden_elements:
+    - anti_aliasing
+    - unauthorized_colors
+    - semi_transparent_pixels
+    - walk
+    - live_svg_pixel_source
+
+template_from: horse_bay
+
+construction_path: C
+
+output:
+  png: true
+  spritesheet: true
+  metadata: true
+  preview: true

@@ -1,7 +1,12 @@
 name: palette_v1
 version: palette_v1
 tile_unit: 16
-description: Frozen Hof equine (bay) role palette. Sampled from Wunderhof COATS.bay as feel ref — not a pixel source. Assets may only use these role RGBs.
+description: >-
+  Frozen Hof equine role palette. Sampled from Wunderhof COATS.bay as feel ref —
+  not a pixel source. Assets may only use these role RGBs. `roles` is the bay
+  ramp and stays the default; `coats` holds the other colour variants of the
+  same geometry (§23), so every coat shares one palette version rather than
+  versioning the coat in the §19 record.
 
 roles:
   # Hex is documentation; RGB arrays are canonical.
@@ -12,3 +17,31 @@ roles:
   LIGHT: [166, 108, 52]          # #A66C34
   HIGHLIGHT: [196, 137, 90]      # #C4895A
   ACCENT: [74, 53, 36]           # #4A3524 muzzle
+
+# Coat ramps. Role names never change, so role-aware mapping (§8) and palette
+# validation work unaltered — a coat swaps what the roles resolve to, nothing
+# more. `SHADOW_DARK` is the points (mane, tail, lower legs), which is where
+# coats actually differ: a bay has black points, a fox has none.
+coats:
+  bay:
+    OUTLINE: [28, 19, 12]
+    SHADOW_DARK: [43, 29, 20]
+    SHADOW: [105, 68, 33]
+    BASE: [138, 90, 43]
+    LIGHT: [166, 108, 52]
+    HIGHLIGHT: [196, 137, 90]
+    ACCENT: [74, 53, 36]
+
+  # Fuchs / chestnut. The defining trait is the absence of black points, so
+  # SHADOW_DARK is a dark chestnut rather than near-black; making only the body
+  # red would read as a bay with an odd tint. Outline luminance (20.8) and total
+  # value range (116.8) track bay's (20.4 / 114.8), so it holds its form and its
+  # outline at native 48x32 exactly as well.
+  fox:
+    OUTLINE: [38, 17, 8]        # #261108
+    SHADOW_DARK: [92, 38, 16]   # #5C2610 mane/tail/legs — chestnut, not black
+    SHADOW: [134, 58, 24]       # #863A18
+    BASE: [176, 80, 32]         # #B05020 chestnut body
+    LIGHT: [205, 108, 52]       # #CD6C34
+    HIGHLIGHT: [232, 152, 92]   # #E8985C
+    ACCENT: [110, 52, 28]       # #6E341C muzzle
