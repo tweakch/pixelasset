@@ -11,10 +11,10 @@ description: >-
   the two markings share their mechanism and most of their ink ladder.
 
   Rendering bay's geometry with bay's own palette and this override reproduces
-  paint_brown with zero mismatched pixels wherever both sheets draw, on all
-  three families. Paint covers roughly three times the area socks does
-  (126319 px against 40297 on the leading sheets), and its jump family needs no
-  re-shading at all.
+  paint_brown with zero mismatched pixels wherever both sheets draw, on all six
+  families, bareback and saddled alike. Paint covers roughly three times the area
+  socks does (126319 px against 40297 on the leading sheets), and both its jump
+  families need no re-shading at all.
 
   A record and a tripwire, not an input — the mask is recomputed at ingest.
 sources:
@@ -60,6 +60,56 @@ sources:
     override_pixels: 126319
     ink_pixels: 124720
     reshade_pixels: 1599
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#6a6a6a'
+      - '#3b3b3b'
+      - '#262626'
+      - '#151515'
+      - '#111111'
+      - '#0a0a0a'
+  ride_saddled:
+    base_sheet: 'Horse_fullcolor_brown_brownsaddled_riding.png'
+    base_sha256: 1f91864fc005f45dc3eb516227cd4ce9cd03e6b81fbd13ed7082a7f58864c9b3
+    marking_sheet: 'Horse_fullcolor_paint_brown_brownsaddled_riding.png'
+    marking_sha256: 3d1bf79f15500ddc829114bf2dfc92afe3e619a1973e53f01f1ab7d1bd78433d
+    override_pixels: 74498
+    ink_pixels: 73629
+    reshade_pixels: 869
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#808080'
+      - '#6a6a6a'
+      - '#262626'
+      - '#151515'
+      - '#111111'
+      - '#0a0a0a'
+  ride_saddled_jump:
+    base_sheet: 'Horse_fullcolor_brown_brownsaddled_jump.png'
+    base_sha256: 0ba803379bfdd59ecd8cf04e2f47f475081ef292bd974f6a2e5b1d0b9e6ead95
+    marking_sheet: 'Horse_paint_brown_brownsaddled_jump.png'
+    marking_sha256: 207f4a0bbb0584a05a44a5f9706ae343a637de143778ae1b29dc0d103d3e32fa
+    override_pixels: 31123
+    ink_pixels: 31123
+    reshade_pixels: 0
+    ink:
+      - '#eeeeee'
+      - '#808080'
+      - '#555555'
+      - '#262626'
+      - '#151515'
+      - '#260d0d'
+      - '#150808'
+  lead_saddled:
+    base_sheet: 'Horse_fullcolor_brown_leading_browsaddle.png'
+    base_sha256: 56527730c40b38b257a9a5fd3ad16344e2243f21bda9944bec5ec2c9444d47ce
+    marking_sheet: 'Horse_paint_brown_leading_brownsaddle.png'
+    marking_sha256: ed64a6ab7160f6a9b6cb925c3cb7c5dd93f3b5d6f32eadb22424c6d5d4d6e5b7
+    override_pixels: 116798
+    ink_pixels: 115206
+    reshade_pixels: 1592
     ink:
       - '#eeeeee'
       - '#aeaeae'

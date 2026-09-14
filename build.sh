@@ -74,7 +74,11 @@ cmd_ingest() {
     warn "$PACK not present (it is gitignored third-party art); skipping"
     return 0
   fi
-  "$PY" -m pixelasset.ingest
+  # Every pack described in packs/, named rather than globbed — a crashed test
+  # can leave a throwaway pack file behind and a glob would ingest it.
+  "$PY" -m pixelasset.ingest \
+    --pack packs/full_pack.yaml \
+    --pack packs/character.yaml
 }
 
 cmd_assets() {
@@ -112,13 +116,20 @@ cmd_manifest() {
   bold "manifest"
   "$PY" - <<'EOF'
 import json
+from collections import defaultdict
 d = json.load(open("assets/production/index.json"))
-playable = sorted({a["variant"] for a in d["assets"] if a.get("mode")})
 print(f"  {len(d['assets'])} assets   pipeline {d['pipeline_version']}")
-print(f"  playable coats: {', '.join(playable)}")
+# By family: the manifest now holds more than horses, and listing a farmhand
+# among the coats is how you notice a consumer is grouping them together too.
+families = defaultdict(set)
+for a in d["assets"]:
+    if a.get("mode"):
+        families[a.get("family") or "?"].add(a["variant"])
+for family, subjects in sorted(families.items()):
+    print(f"  {family:9s} : {', '.join(sorted(subjects))}")
 props = [a["id"] for a in d["assets"] if not a.get("mode")]
 if props:
-    print(f"  non-playable  : {', '.join(props)}")
+    print(f"  no mode   : {', '.join(props)}")
 EOF
 }
 
@@ -144,6 +155,7 @@ cmd_serve() {
   bold "serving on http://localhost:$PORT"
   info "game   http://localhost:$PORT/game/"
   info "viewer http://localhost:$PORT/game/viewer.html"
+  info "anim   http://localhost:$PORT/game/anim.html"
   "$PY" -m http.server "$PORT"
 }
 
@@ -155,7 +167,7 @@ cmd_all() {
   cmd_manifest
   echo
   bold "done"
-  info "./build.sh serve    then open http://localhost:$PORT/game/viewer.html"
+  info "./build.sh serve    then open http://localhost:$PORT/game/anim.html"
 }
 
 usage() {

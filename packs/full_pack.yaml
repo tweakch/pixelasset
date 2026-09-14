@@ -21,26 +21,131 @@ sources:
     cell: auto
   lead:
     dir: Horse_Sprite_Leading_Asset/Horses_halter
+    # ONE FRAME OF THIS SHEET IS MISSING ITS LEAD ROPE, and it is the only
+    # frame in the pack like it. Row 8 is the west idle; column 3 draws the
+    # handler with an empty hand. Against column 0 it differs in 64 px and they
+    # fall in two disjoint places: 10 px at x3-4 y50-54, which is the handler's
+    # eye and a real animation difference, and 54 px at x6-30 y37-69, which is
+    # the halter, the lead rope and the hand that grips it, absent. Looped at
+    # 4fps the rope blinks out for a quarter of a second every 2.75s.
+    #
+    # It is repaired rather than dropped because the repair is a copy. The
+    # equipment rectangle is BYTE-IDENTICAL in every other frame of the row —
+    # columns 1,2,4,5,6,7,8,9,10 agree exactly and column 0 differs in 9 px —
+    # so there is no sway to interpolate and nothing to invent. Copying
+    # x6 y37, 25x33 out of column 2 gives a frame that differs from column 2 in
+    # exactly the 10 eye pixels, which is what column 3 should always have been:
+    # its own eye, on the same body, with the equipment drawn. The box starts at
+    # x6 and the eye ends at x4, so the two never touch.
+    #
+    # Found by connectivity, which is the general check: a led horse is one
+    # 8-connected blob because the rope joins the two bodies. Sweeping every
+    # frame of all seven halter leading sheets finds fifteen that split in two.
+    # Fourteen are the `nuzzle` and `pet` rows, where the handler has let go on
+    # purpose to reach out and the horse wears no halter either. The fifteenth
+    # is this. Every coat has it, because the coats are recolours of one
+    # geometry. After the patch the frame is one blob of 1505 px, the same count
+    # as column 2. `tests/test_clips.py` pins the whole census, so a future
+    # sheet that drops a rope fails instead of shipping.
+    #
+    # Declared on the source rather than the clip because it is a fact about
+    # this sheet: `lead_saddled` inherits the entire `lead` clip block, and its
+    # sheets do NOT have the defect — fourteen splits each, all of them petting.
+    #
+    # `cell:` is pinned because `patch:` requires it. The grid is addressed in
+    # cells and detecting it from a sheet that is about to change would let the
+    # coordinates mean one thing before the edit and another after; the free
+    # search agrees with the pin, and `confirm_cell` checks that.
+    cell: [100, 96]
+    patch:
+      - to:   [8, 3]
+        from: [8, 2]
+        box:  [6, 37, 25, 33]   # x, y, w, h — halter, rope and gripping hand
+
+  # Tack. The pack draws each family twice — once with the horse bare and once
+  # with it saddled — on the same grid, the same rows and the same geometry, so
+  # a saddled mode is the bareback mode pointed at different sheets.
+  #
+  # Every saddle here is the BROWN one, and that is measured rather than a
+  # preference. A rendered coat substitutes bay's thirteen colours and passes
+  # everything else through, so a saddle drawn outside that key space survives
+  # any coat untouched. The brown saddle is: 10 px of overlap on the riding
+  # sheet, none on the jump sheet, 126 px on the leading sheet. The black
+  # saddle draws 4226 px of the riding sheet and 1741 px of the jump sheet in
+  # bay's own #000000 (role HOOF), so on fox or dun it would be recoloured with
+  # the horse. Add the black saddle as a third tack if you want it, but do not
+  # make it the one a rendered coat is built from.
+  ride_saddled:
+    dir: Horse_Sprite_Riding_Asset/Horses_saddeled
+    cell: auto
+  ride_saddled_jump:
+    dir: Horse_Sprite_Jump_Asset/Horse_and_Rider/Horses_saddeled
+    cell: auto
+  lead_saddled:
+    dir: Horse_Sprite_Leading_Asset/Horses_saddled
+    cell: auto
+
+  # The horse on its own — no rider, no handler, no tack. Same eighteen rows in
+  # the same order as the riding sheets, measured: every row carries the same
+  # frame count except the three idles, where the ridden version has two extra
+  # frames because the rider shifts in the saddle. That is why `loose` inherits
+  # `ride`'s clip block rather than repeating it, and why frame counts stay
+  # measured rather than declared.
+  loose:
+    dir: Horse_Sprite_Asset/Horses_no_equipment
+    cell: auto
+  loose_jump:
+    dir: Horse_Sprite_Asset/Horses_Jump/Horses_no_equipment
+    cell: auto
+
+  # The loose horse wearing the same brown saddle the ridden sheets use. It is
+  # the SMALL saddle: the author's rider update says the original saddle was
+  # "too big so I had to modify it to fit the rider", and the riding and leading
+  # families ship only the small one — so the big saddle is a different piece of
+  # tack that no ridden sheet matches.
+  #
+  # Same grid and the same eighteen rows as `loose`, measured, and the saddle
+  # overlaps bay's key space on zero pixels, so it survives every rendered coat
+  # untouched like the others.
+  loose_saddled:
+    dir: Horse_Sprite_Asset/Horses_equipped_smallsaddle
+    cell: auto
+  loose_saddled_jump:
+    dir: Horse_Sprite_Jump_Asset/Only_Horse/Horses_equiped_smallsaddle
     cell: auto
 
 # `frames` is omitted everywhere it can be counted. It is only given for the
 # jump clips, which are a deliberate sub-range: columns 0-4 of those rows are
 # run-up gallop strides, so the clip starts near take-off instead of replaying
 # an approach the player already rode.
+# A mode is one configuration of the subject, and it now has two axes. `tack`
+# names what the horse is wearing; `like` says this mode is another one drawn on
+# different sheets, and `sheets` remaps the source keys its clips refer to.
+#
+# Inheritance rather than a second copy of the clip block: the saddled sheets
+# carry the same rows, the same frame counts and the same jump windows, so a
+# duplicated block would be 34 lines that can only ever drift. `like` states the
+# fact instead — same animations, different artwork. One level only; a mode that
+# inherits cannot itself be inherited from.
 modes:
   ride:
     label: Riding
+    tack: bareback
     clips:
       east:
         idle:   {src: ride, row: 0, fps: 5}
-        graze:  {src: ride, row: 1, fps: 7}
+        graze_down: {src: ride, row: 1, first: 0, frames: 3, fps: 7, loop: false, next: graze}
+        graze:      {src: ride, row: 1, first: 3, frames: 3, fps: 5}
+        graze_up:   {src: ride, row: 1, first: 6, frames: 2, fps: 7, loop: false, next: idle}
         walk:   {src: ride, row: 2, fps: 9}
         trot:   {src: ride, row: 3, fps: 12}
         gallop: {src: ride, row: 4, fps: 14}
         jump:   {src: ride_jump, row: 0, first: 5, frames: 8, fps: 14, loop: false}
       west:
         idle:   {src: ride, row: 5, fps: 5}
-        graze:  {src: ride, row: 6, fps: 7}
+        graze_down: {src: ride, row: 6, first: 0, frames: 3, fps: 7, loop: false, next: graze}
+        graze:      {src: ride, row: 6, first: 3, frames: 3, fps: 5}
+        graze_up:   {src: ride, row: 6, first: 6, frames: 2, fps: 7, loop: false, next: idle}
         walk:   {src: ride, row: 7, fps: 9}
         trot:   {src: ride, row: 8, fps: 12}
         gallop: {src: ride, row: 9, fps: 14}
@@ -58,25 +163,113 @@ modes:
         gallop: {src: ride, row: 17, fps: 14}
         jump:   {src: ride_jump, row: 3, first: 4, frames: 10, fps: 14, loop: false}
 
+  ride_saddled:
+    label: Riding, saddled
+    tack: saddled
+    like: ride
+    sheets:
+      ride: ride_saddled
+      ride_jump: ride_saddled_jump
+
   lead:
     label: On foot
+    tack: halter
     # East and west carry eight rows each, north and south only five. `graze`
-    # is authored solely on the side-on blocks; `pet` exists in all four.
+    # is authored solely on the side-on blocks; `nuzzle` and `pet` exist in all
+    # four.
+    #
+    # GRAZING IS ONE ROW CUT INTO THREE. The eight frames are an arc, not a
+    # loop. The muzzle descends 55, 77, 80, 81, 81, 81, 80, 77 across the row,
+    # so frames 3-5 are the plateau where the horse is actually eating and the
+    # other five are the way down and the way back. Looping the whole row
+    # played that arc end to end at 7fps: the horse nodded and never ate.
+    #
+    # Cut at the plateau it is a gesture with a hold in the middle — 3 down, 3
+    # held, 2 up. `first:` and `frames:` take the windows, `loop: false` plus
+    # `next:` chains them, and only the middle one repeats, so a consumer
+    # dwells there for as long as the horse is grazing. Same arc and the same
+    # cut on the riding sheet, measured there too; the plateau reads the same
+    # on both as a step in the opaque pixel count of each frame's bottom
+    # fourteen rows (264/285/297/430/430/430/297/285 riding, and the same
+    # shape leading).
+    #
+    # PETTING IS TWO ROWS. The row before each `pet` row is the other half of
+    # the same gesture: the handler leans in and the hearts bloom, then `pet`
+    # leans back out and they fade. Measured, not read off the picture — the
+    # last frame of `nuzzle` differs from the first frame of `pet` by 10 px
+    # (16 facing south and north), and `nuzzle`'s first frame from `pet`'s last
+    # by 9-15, so the two rows meet end to end in both directions and form one
+    # cycle. Playing either alone is half a gesture, which is what the game did
+    # while only `pet` was ingested. `next:` is how a consumer learns that, and
+    # it is a cycle: nuzzle -> pet -> nuzzle.
+    #
+    # TURNING OUT OF PROFILE. `turn_walk` and `turn_trot` are the rows after
+    # walk and trot, and they exist only on the east and west blocks — which is
+    # the clue to what they are. Walk sideways, press up: the handler pivots to
+    # the new direction first and the horse follows a beat later. Without them
+    # the pair snaps to the north block in one frame and the horse clips through
+    # the handler.
+    #
+    # The artwork says the same thing. Across both frames of `turn_trot` and the
+    # first two of `turn_walk`, the horse's half of the cell is byte-identical
+    # to frame 0 of the gait the row sits under — the horse is held while only
+    # the handler is redrawn. A row where one subject is frozen and the other
+    # moves is a transition, not a gait.
+    #
+    # They carry `defines_baseline: false` because the handler is already
+    # stepped toward the camera in them: their lowest row is 83 against 78 for
+    # every other east/west clip, on the way to the front-facing stance whose
+    # ground is 95. Letting a transition set the ground would move east and west
+    # to 83 and float all six other clips 5px. Measured, and it is the mirror of
+    # the sign-off on south `pet`, which steps the other way.
     clips:
       east:
-        idle:  {src: lead, row: 0,  fps: 4}
-        graze: {src: lead, row: 1,  fps: 7}
-        pet:   {src: lead, row: 3,  fps: 8}
-        walk:  {src: lead, row: 4,  fps: 9}
-        trot:  {src: lead, row: 6,  fps: 12}
+        idle:   {src: lead, row: 0,  fps: 4}
+        graze_down: {src: lead, row: 1,  first: 0, frames: 3, fps: 7, loop: false, next: graze}
+        graze:      {src: lead, row: 1,  first: 3, frames: 3, fps: 5}
+        graze_up:   {src: lead, row: 1,  first: 6, frames: 2, fps: 7, loop: false, next: idle}
+        nuzzle: {src: lead, row: 2,  fps: 8, loop: false, next: pet}
+        pet:    {src: lead, row: 3,  fps: 8, loop: false, next: nuzzle}
+        walk:   {src: lead, row: 4,  fps: 9}
+        turn_walk:
+          src: lead
+          row: 5
+          fps: 9
+          loop: false
+          defines_baseline: false
+        trot:   {src: lead, row: 6,  fps: 12}
+        turn_trot:
+          src: lead
+          row: 7
+          fps: 12
+          loop: false
+          defines_baseline: false
       west:
-        idle:  {src: lead, row: 8,  fps: 4}
-        graze: {src: lead, row: 9,  fps: 7}
-        pet:   {src: lead, row: 11, fps: 8}
-        walk:  {src: lead, row: 12, fps: 9}
-        trot:  {src: lead, row: 14, fps: 12}
+        # Row 8 column 3 of this sheet is missing its lead rope;
+        # `sources.lead.patch` restores it. See the note there.
+        idle:   {src: lead, row: 8,  fps: 4}
+        graze_down: {src: lead, row: 9,  first: 0, frames: 3, fps: 7, loop: false, next: graze}
+        graze:      {src: lead, row: 9,  first: 3, frames: 3, fps: 5}
+        graze_up:   {src: lead, row: 9,  first: 6, frames: 2, fps: 7, loop: false, next: idle}
+        nuzzle: {src: lead, row: 10, fps: 8, loop: false, next: pet}
+        pet:    {src: lead, row: 11, fps: 8, loop: false, next: nuzzle}
+        walk:   {src: lead, row: 12, fps: 9}
+        turn_walk:
+          src: lead
+          row: 13
+          fps: 9
+          loop: false
+          defines_baseline: false
+        trot:   {src: lead, row: 14, fps: 12}
+        turn_trot:
+          src: lead
+          row: 15
+          fps: 12
+          loop: false
+          defines_baseline: false
       south:
         idle:  {src: lead, row: 16, fps: 3}
+        nuzzle: {src: lead, row: 17, fps: 8, loop: false, next: pet}
         # The handler leans toward the horse to pet it, which in a top-down
         # view means stepping closer — so their feet sit 5px above the walking
         # baseline. Authored, not drift. Signed off here rather than silently
@@ -85,6 +278,8 @@ modes:
           src: lead
           row: 18
           fps: 8
+          loop: false
+          next: nuzzle
           accept:
             CLIP_FLOATS: >-
               handler steps toward the horse to reach its nose; feet sit 5px
@@ -92,16 +287,55 @@ modes:
         walk:  {src: lead, row: 19, fps: 9}
         trot:  {src: lead, row: 20, fps: 12}
       north:
-        idle:  {src: lead, row: 21, fps: 1}
-        pet:   {src: lead, row: 23, fps: 8}
-        walk:  {src: lead, row: 24, fps: 9}
-        trot:  {src: lead, row: 25, fps: 12}
+        idle:   {src: lead, row: 21, fps: 1}
+        nuzzle: {src: lead, row: 22, fps: 8, loop: false, next: pet}
+        pet:    {src: lead, row: 23, fps: 8, loop: false, next: nuzzle}
+        walk:   {src: lead, row: 24, fps: 9}
+        trot:   {src: lead, row: 25, fps: 12}
+
+  lead_saddled:
+    label: On foot, saddled
+    tack: saddled
+    like: lead
+    sheets:
+      lead: lead_saddled
+
+  # The loose horse. `mode` is declared rather than inherited: it borrows
+  # `ride`'s eighteen rows because they are the same animations, but a horse
+  # with nobody on it is a different configuration, not a different tack.
+  loose:
+    label: Loose
+    mode: loose
+    tack: none
+    like: ride
+    sheets:
+      ride: loose
+      ride_jump: loose_jump
+
+  # `like: ride` rather than `like: loose`, because inheritance is one level and
+  # `loose` already inherits. Both borrow the same eighteen rows; saying so
+  # twice is the cost of refusing to chain, and a chain would make the sheet a
+  # clip actually reads impossible to see.
+  loose_saddled:
+    label: Loose, saddled
+    mode: loose
+    tack: saddled
+    like: ride
+    sheets:
+      ride: loose_saddled
+      ride_jump: loose_saddled_jump
 
 # The same coat is spelled five different ways across this pack, so filenames
 # are listed rather than derived. Six of the leading files carry two U+200B
 # zero-width spaces before the extension — written as escapes so they are
 # visible here. A pipeline that globbed these would silently miss them, which
 # is the whole reason the canonical names on the other side of ingest exist.
+#
+# The brown-saddle files add two more spellings of the same word — bay and black
+# lead on `browsaddle`, everything else on `brownsaddle` — and the saddled jump
+# sheets drop the `fullcolor_` prefix for paint and socks while keeping it for
+# the three solid coats. None of them carry zero-width spaces, which is its own
+# reason to list rather than glob: the rule changes per directory.
 coats:
   bay:
     label: Bay
@@ -109,42 +343,91 @@ coats:
       ride: Horse_fullcolor_brown_barebackriding.png
       ride_jump: Horse_fullcolor_brown_barebackriding_jump.png
       lead: Horse_fullcolor_brown_leading_blacknhalter.png
+      ride_saddled: Horse_fullcolor_brown_brownsaddled_riding.png
+      ride_saddled_jump: Horse_fullcolor_brown_brownsaddled_jump.png
+      lead_saddled: Horse_fullcolor_brown_leading_browsaddle.png
+      loose: Horse_fullcolor_brown.png
+      loose_jump: Horse_fullcolor_brown_jump.png
+      loose_saddled: Horse_fullcolor_brown_brownsaddled_smallsaddle.png
+      loose_saddled_jump: Horse_fullcolor_brown_brownsaddled_smallsaddle_jump.png
   black:
     label: Black
     files:
       ride: Horse_fullcolor_black_barebackriding.png
       ride_jump: Horse_fullcolor_black_barebackriding_jump.png
       lead: Horse_fullcolor_black_leading_blackhalter.png
+      ride_saddled: Horse_fullcolor_black_brownsaddled_riding.png
+      ride_saddled_jump: Horse_fullcolor_black_brownsaddled_jump.png
+      lead_saddled: Horse_fullcolor_black_leading_browsaddle.png
+      loose: Horse_fullcolor_black.png
+      loose_jump: Horse_fullcolor_black_jump.png
+      loose_saddled: Horse_fullcolor_black_brownsaddled_smallsaddle.png
+      loose_saddled_jump: Horse_fullcolor_black_brownsaddled_smallsaddle_jump.png
   white:
     label: White
     files:
       ride: Horse_fullcolor_white_barebackriding.png
       ride_jump: Horse_fullcolor_white_barebackriding_jump.png
       lead: Horse_fullcolor_white_leading_blacknnhalter.png
+      ride_saddled: Horse_fullcolor_white_brownsaddled_riding.png
+      ride_saddled_jump: Horse_fullcolor_white_brownsaddled_jump.png
+      lead_saddled: Horse_fullcolor_white_leading_brownsaddle.png
+      loose: Horse_fullcolor_White.png
+      loose_jump: Horse_fullcolor_white_jump.png
+      loose_saddled: Horse_fullcolor_White_brownsaddled_smallsaddle.png
+      loose_saddled_jump: Horse_fullcolor_white_brownsaddled_smallsaddle_jump.png
   paint_brown:
     label: Paint
     files:
       ride: Horse_fullcolor_paint_brown_barebackriding.png
       ride_jump: Horse_paint_brown_barebackriding_jump.png
       lead: "Horse_paint_brown​​_leading_blackhalter.png"
+      ride_saddled: Horse_fullcolor_paint_brown_brownsaddled_riding.png
+      ride_saddled_jump: Horse_paint_brown_brownsaddled_jump.png
+      lead_saddled: Horse_paint_brown_leading_brownsaddle.png
+      loose: Horse_paint_brown.png
+      loose_jump: Horse_paint_brown_jump.png
+      loose_saddled: Horse_paint_brown_brownsaddled_smallsaddle.png
+      loose_saddled_jump: Horse_paint_brown_brownsaddled_smallsaddle_jump.png
   paint_black:
     label: Paint Black
     files:
       ride: Horse_fullcolor_paint_black_barebackriding.png
       ride_jump: Horse_paint_black_barebackriding_jump.png
       lead: "Horse_paint_back​​_leading_blackhalter.png"
+      ride_saddled: Horse_fullcolor_paint_black_brownsaddled_riding.png
+      ride_saddled_jump: Horse_paint_black_brownsaddled_jump.png
+      lead_saddled: Horse_paint_black_leading_brownsaddle.png
+      loose: Horse_paint_black.png
+      loose_jump: Horse_paint_black_jump.png
+      loose_saddled: Horse_paint_black_brownsaddled_smallsaddle.png
+      loose_saddled_jump: Horse_paint_black_brownsaddled_smallsaddle_jump.png
   socks_brown:
     label: Socks
     files:
       ride: Horse_fullcolor_socks_brown_barebackriding.png
       ride_jump: Horse_sock_brown_barebackriding_jump.png
       lead: "Horse_socks_brown​​_leading_blackhalter.png"
+      ride_saddled: Horse_socks_brown_brownsaddled_riding.png
+      ride_saddled_jump: Horse_socks_brown_brownsaddled_jump.png
+      lead_saddled: Horse_socks_brown_leading_brownsaddle.png
+      loose: Horse_socks_brown.png
+      loose_jump: Horse_socks_brown_jump.png
+      loose_saddled: Horse_socks_brown_brownsaddled_smallsaddle.png
+      loose_saddled_jump: Horse_socks_brown_brownsaddled_smallsaddle_jump.png
   socks_black:
     label: Socks Black
     files:
       ride: Horse_fullcolor_socks_black_barebackriding.png
       ride_jump: Horse_sock_black_barebackriding_jump.png
       lead: "Horse_socks_black​​_leading_blackhalter.png"
+      ride_saddled: Horse_socks_black_brownsaddled_riding.png
+      ride_saddled_jump: Horse_socks_black_brownsaddled_jump.png
+      lead_saddled: Horse_socks_black_leading_brownsaddle.png
+      loose: Horse_socks_black.png
+      loose_jump: Horse_socks_black_jump.png
+      loose_saddled: Horse_socks_black_brownsaddled_smallsaddle.png
+      loose_saddled_jump: Horse_socks_black_brownsaddled_smallsaddle_jump.png
 
 # Markings: a region of the artwork, not a colour of it.
 #
@@ -162,7 +445,8 @@ coats:
 # a marking edge, and they go through the body mapping like any other body
 # colour. That single test is the whole of how a marking composes, and it is
 # verified: rendering bay through its own palette plus the override reproduces
-# the shipped marking sheet with zero mismatched pixels, on all three families.
+# the shipped marking sheet with zero mismatched pixels, on all six families —
+# the three bareback ones and the three saddled ones.
 #
 # `against` must match the `from` of any rendered coat using the marking, and it
 # must be the brown one. Derived against black, the black body palette already

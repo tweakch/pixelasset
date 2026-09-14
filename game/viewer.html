@@ -28,11 +28,14 @@
   .clipcell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
   canvas.frame { image-rendering: pixelated; display: block; border: 1px solid #2e3a24; }
   .caption { font-size: 10px; color: #8fa383; }
+  .nav { margin: -14px 0 22px; font-size: 11px; }
+  .nav a { color: #e0a13a; }
 </style>
 </head>
 <body>
   <h1>Asset viewer</h1>
   <p id="summary">loading manifest…</p>
+  <p class="nav"><a href="./index.html">pasture</a> · <a href="./anim.html">animation debugger</a></p>
   <div id="grid"></div>
   <script type="module" src="./viewer.js"></script>
 </body>

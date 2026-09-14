@@ -39,12 +39,16 @@ from pixelasset.paths import ProjectPaths
 ROOT = Path(__file__).resolve().parent.parent
 PACK_FILE = ROOT / "packs/full_pack.yaml"
 PATHS = ProjectPaths(ROOT)
-FAMILIES = ("ride", "ride_jump", "lead")
+# Every source the pack declares, because `ingest._marking_for` derives a
+# mask for every one of them — a family missing here would be built from
+# artwork nothing checks.
+FAMILIES = ("ride", "ride_jump", "lead",
+            "ride_saddled", "ride_saddled_jump", "lead_saddled")
 PAIRS = [(m, f) for m in ("socks", "paint") for f in FAMILIES]
 
 
 def _pack():
-    pack = yaml.safe_load(PACK_FILE.read_text(encoding="utf-8"))
+    pack = ingest.load_pack(PACK_FILE)
     root = ROOT / pack["pack"]["root"]
     if not root.is_dir():
         pytest.skip("gitignored third-party pack not present")

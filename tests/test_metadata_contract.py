@@ -19,7 +19,8 @@ from pathlib import Path
 
 import jsonschema
 import pytest
-import yaml
+
+from pixelasset import ingest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA = json.loads((ROOT / "schemas/metadata.schema.json").read_text())
@@ -101,7 +102,7 @@ def test_unsupported_layout_is_rejected():
 def _pack():
     if not PACK_FILE.is_file():
         pytest.skip("no pack description")
-    pack = yaml.safe_load(PACK_FILE.read_text(encoding="utf-8"))
+    pack = ingest.load_pack(PACK_FILE)
     root = ROOT / pack["pack"]["root"]
     if not root.is_dir():
         pytest.skip(f"{root} not present (gitignored third-party pack)")
@@ -109,7 +110,6 @@ def _pack():
 
 
 def _ingested(coat="bay", mode="ride"):
-    from pixelasset import ingest
     pack, root = _pack()
     asset = ingest.build_asset(pack, root, coat, mode)
     ingest.render_sheet(asset)          # assigns row indices
@@ -144,3 +144,127 @@ def test_order_length_matches_frame_count():
         for anim in meta["animations"]:
             assert len(anim["order"]) == anim["frames"], f"{mode} {anim['name']}"
         assert meta["frame_count"] == sum(a["frames"] for a in meta["animations"])
+
+
+# --- provenance ------------------------------------------------------------
+#
+# `source` is the fourth contract extension and the only one nothing needs in
+# order to draw. It is here so a defect can be reported against the artwork
+# rather than against the packed output: "frame 3 of walk west is wrong" names
+# a picture, and "row 6 column 3 of Character_base.png" names something a
+# producer can go and fix. The animation debugger prints it under every frame.
+#
+# Which makes the only interesting property its exactness. A provenance field
+# that is approximately right is worse than none at all.
+
+def test_every_ingested_clip_says_where_it_came_from():
+    for pack_file in ("packs/full_pack.yaml", "packs/character.yaml"):
+        pack = ingest.load_pack(ROOT / pack_file)
+        root = ROOT / pack["pack"]["root"]
+        if not root.is_dir():
+            pytest.skip(f"{root} not present (gitignored third-party pack)")
+        subjects = pack.get("coats") or pack["subjects"]
+        mode = sorted(pack["modes"])[0]
+        asset = ingest.build_asset(pack, root, sorted(subjects)[0], mode)
+        ingest.render_sheet(asset)
+        meta = ingest.metadata(asset)
+        jsonschema.validate(meta, SCHEMA)
+        for anim in meta["animations"]:
+            src = anim["source"]
+            assert (ROOT / src["sheet"]).is_file(), src["sheet"]
+            assert src["row"] >= 0
+            assert len(src["columns"]) == anim["frames"]
+            assert src["columns"] == sorted(set(src["columns"])), src["columns"]
+
+
+def test_the_source_of_a_frame_is_that_frame():
+    """The claim, checked against pixels rather than against the code that
+    wrote it: every frame of the built sheet is byte-identical to the source
+    cell its own metadata names, once both are cropped to the content. They
+    cannot be compared whole — ingest re-blits onto one common cell with one
+    origin, so the padding around the subject is exactly what changed.
+
+    Two fields earn their keep here. `columns` is a list because `lead` is not
+    consecutive everywhere, and under a first-plus-count contract every frame
+    after a gap would name the picture next to the one it is. `patched` is the
+    exception list: those frames deliberately do NOT match the raw sheet, and
+    this checks that the set of frames that differ is exactly the set that says
+    it will — a correction that leaked into a second frame fails here."""
+    import numpy as np
+    from pixelasset.coat import load_sheet
+
+    pack, root = _pack()
+    # Source specs by the path metadata names them under, so a sheet is read
+    # through the same loader the producer used, corrections and all.
+    spec_for = {}
+    for src, spec in pack["sources"].items():
+        for coat in pack["coats"].values():
+            if src in coat["files"]:
+                spec_for[str(root / spec["dir"] / coat["files"][src])] = spec
+
+    asset = ingest.build_asset(pack, root, "bay", "lead")
+    sheet = np.array(ingest.render_sheet(asset).convert("RGBA"))
+    meta = ingest.metadata(asset)
+    cw, ch = meta["frame_size"]
+    raw, fixed = {}, {}
+
+    def content(a):
+        """The visible subject, cropped to its alpha bounding box and with the
+        RGB under transparent pixels zeroed.
+
+        Both halves matter. The crop is because ingest re-blits onto one common
+        cell, so the padding is exactly what it changed. The zeroing is because
+        this pack's PNGs carry colour underneath fully transparent pixels — the
+        coat renderer keeps that in a separate channel to stay byte-identical,
+        and a re-blit does not, so comparing it here would be asserting
+        something neither producer promises. What must match is what you can
+        see, which is every pixel with alpha."""
+        opaque = a[:, :, 3] > 0
+        ys, xs = np.nonzero(opaque)
+        out = a[ys.min():ys.max() + 1, xs.min():xs.max() + 1].copy()
+        out[out[:, :, 3] == 0] = 0
+        return out
+
+    checked = 0
+    differs_from_raw = set()
+    declared = set()
+    for anim in meta["animations"]:
+        src = anim["source"]
+        path = str(ROOT / src["sheet"])
+        if path not in raw:
+            raw[path] = load_sheet(ROOT / src["sheet"])
+            fixed[path] = ingest.load_source_sheet(ROOT / src["sheet"],
+                                                   spec_for[path])
+        sw, sh = src["cell"]
+        for i in src.get("patched", []):
+            declared.add((anim["facing"], anim["name"], i))
+        for i in range(anim["frames"]):
+            built = sheet[anim["row"] * ch:(anim["row"] + 1) * ch,
+                          i * cw:(i + 1) * cw]
+            col = src["columns"][i]
+            box = (slice(src["row"] * sh, (src["row"] + 1) * sh),
+                   slice(col * sw, (col + 1) * sw))
+            assert np.array_equal(content(built), content(fixed[path][box])), (
+                f"{anim['name']}/{anim['facing']} frame {i} is not "
+                f"{src['sheet']} row {src['row']} col {col}"
+            )
+            if not np.array_equal(raw[path][box], fixed[path][box]):
+                differs_from_raw.add((anim["facing"], anim["name"], i))
+            checked += 1
+    assert checked > 100, checked
+    assert differs_from_raw == declared, (
+        f"frames that differ from the raw sheet: {sorted(differs_from_raw)}, "
+        f"frames declaring `patched`: {sorted(declared)}"
+    )
+    assert declared, "the leading sheet carries a correction; it should be listed"
+
+
+def test_provenance_is_optional():
+    """The stage graph has no single source row per clip and emits none, so a
+    consumer must treat the field as absent-able. `hay_bale` is the case."""
+    shipped = ROOT / "assets/production/hay_bale/metadata.json"
+    if not shipped.is_file():
+        pytest.skip("hay_bale not built")
+    meta = json.loads(shipped.read_text())
+    jsonschema.validate(meta, SCHEMA)
+    assert all("source" not in a for a in meta["animations"])

@@ -49,7 +49,7 @@ SHEETS = {
 
 
 def _pack():
-    pack = yaml.safe_load(PACK_FILE.read_text(encoding="utf-8"))
+    pack = ingest.load_pack(PACK_FILE)
     root = ROOT / pack["pack"]["root"]
     if not root.is_dir():
         pytest.skip("gitignored third-party pack not present")
@@ -404,7 +404,8 @@ def _sheet_hash(pair) -> str:
     return hashlib.sha256(pair[1].tobytes()).hexdigest()
 
 
-@pytest.mark.parametrize("mode", ["ride", "lead"])
+@pytest.mark.parametrize(
+    "mode", ["ride", "lead", "ride_saddled", "lead_saddled"])
 def test_rendering_bay_through_its_own_palette_reproduces_bay(mode):
     """The acid test. Extract bay's palette, run the pipeline through it, and
     the output is byte-identical to building bay directly."""
@@ -449,15 +450,34 @@ def test_rendered_coat_uses_only_its_own_targets(coat):
     assert used <= targets | outside
 
 
+# Both tables were re-frozen when `graze` was cut into graze_down / graze /
+# graze_up: one eight-frame row became three clips on three rows, so both
+# sheets gained two rows per side-on block and the packing moved. No pixel of
+# the artwork changed, and that is not what a hash can tell you — the exact
+# claims live in tests/test_clips.py, where
+# test_the_three_graze_clips_are_the_whole_row_in_order pins that the three
+# windows are the same eight source frames in the same order, and
+# test_splitting_graze_left_every_other_clip_alone pins that nothing else moved.
+# A hash says "something changed"; those say what may not have.
 FROZEN_SHEETS = {
     # Captured before the format migration. The production PNGs are gitignored,
     # so this and FOX_MAPPING are the only oracles for "no pixel moved".
-    ("bay", "ride"): "84fa627c2799061fb2bfba102ee6a1d91d31e8059c0a779669ee2182f8b378a4",
-    ("bay", "lead"): "73a441d6c3cfc63ad6d2f41ac30b951694acb18bf09fd5a26366928a51a30ee9",
+    ("bay", "ride"): "53611058c87f4f6584ab837f819bce9e1e6d637227534dd29aa874e20dc0d89d",
+    # Re-frozen once before, when the leading sheet gained `nuzzle` and the two
+    # turn transitions: 18 rows became 26 and the cell grew 100x79 -> 100x84 to
+    # hold turn frames that legitimately reach below the ground line. What
+    # must NOT have changed is checked separately and exactly, by
+    # test_adding_clips_did_not_move_the_existing_ones in tests/test_clips.py.
+    # And again when `sources.lead.patch` restored the lead rope on the one
+    # frame of the west idle that is missing it. Only the leading hashes moved,
+    # which is itself the claim: the correction is 63 px inside one cell of one
+    # sheet, and test_the_patch_is_a_copy_and_touches_nothing_else pins that
+    # exactly, against the artwork rather than against a digest.
+    ("bay", "lead"): "6482570cad9c679f7531d156e451d738c53f33161004935bc7654eb5d09a652b",
 }
 FROZEN_RENDERED = {
-    ("bay", "ride", "coat_fox"): "e157bc7faaddaab7258dcb43efc2e9f9a650baae215d0474e019ad0257d6f6de",
-    ("bay", "lead", "coat_fox"): "600d36579622d36b68b0d425e8e3aff9182bdc17b81e6672e390e90e0e5ae6f4",
+    ("bay", "ride", "coat_fox"): "9dda428cc05785cff5c4e16950106955dfa77c20322f45669fff180b02d7bc9b",
+    ("bay", "lead", "coat_fox"): "7f255c9e0f71d6f9b8188babf27284626550f11aa2ff70141b244706e1295fe0",
 }
 
 

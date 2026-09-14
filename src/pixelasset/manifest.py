@@ -38,6 +38,10 @@ def entry_for(meta: dict[str, Any]) -> dict[str, Any]:
         # riding or leading sheet. A single-facing idle has none, and the game's
         # coat cycle filters on exactly this so a prop cannot break it.
         "mode": meta.get("mode"),
+        # Two assets of one coat can share a mode and differ only in tack, so a
+        # consumer keying purely on `mode` would quietly keep whichever it saw
+        # last. Carried here so the index is enough to build the pairing from.
+        "tack": meta.get("tack"),
         "frame_size": meta["frame_size"],
         "frame_count": meta["frame_count"],
         "animations": len(meta["animations"]),

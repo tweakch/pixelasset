@@ -1,0 +1,139 @@
+# Source description for the pack's character sprite.
+#
+# A second pack file rather than a section of full_pack.yaml, because the
+# subject is not a horse: it has no coats, no markings and nothing to render by
+# palette substitution. What it shares is the producer — `subjects:` is the
+# general spelling of the list full_pack.yaml calls `coats:`, and everything
+# else (grid detection, anchor measurement, re-blitting onto one cell, the
+# metadata contract) is the same code path.
+#
+# PIPELINE.md §18: nothing here is a measurement. Row numbers, facings and
+# animation names are the part a script cannot derive; frame counts, cell
+# origins and baselines are all absent because they are read from the pixels.
+
+pack:
+  id: character
+  root: samples/Full_Pack
+  family: character
+
+sources:
+  # Pinned, not detected — the only sheet in the project that needs it.
+  # `detect_cell` searches from `min_side: 24` because that is what the horse
+  # sheets need, so a 16px cell is never even a candidate and the search reports
+  # no plausible grid at all. `confirm_cell` validates the pin instead: it
+  # divides the sheet (144 = 9 x 16, 646 = 19 x 34), it yields frames, and no
+  # cell of it cuts a sprite at a column boundary.
+  #
+  # The author's page says "Frame size: 16px x 34px" and it means the pitch.
+  # An earlier pin of 18 read that number as "the art inside a wider cell" and
+  # was wrong in the way a divisor can be: 8 x 18 also makes 144, so it cut the
+  # grid and passed every check the loader had. It was two pixels out of phase
+  # per column, so every frame from the second on carried a slice of its
+  # neighbour and the walk drew a row of farmhands. The pitch is measured now,
+  # not reasoned about: the sheet's empty columns are 0, 48, 64, 80, 112, 128
+  # — multiples of 16, none of 18 — and under a 16px cut a cell touches both
+  # its left and right edge nowhere on its 132 occupied cells, against 88 of
+  # 127 under an 18px one.
+  base:
+    dir: .
+    cell: [16, 34]
+
+# The author lists five animations "for the character in four directions, up,
+# down, left and right": idle eye blinking, walk, run, leading while walking,
+# leading while running. That is twenty rows and nineteen ship, and the missing
+# one is measured rather than guessed — see `north` below.
+#
+# Which row is which facing is measured off the iris (#86b2ff), because the
+# character is drawn with eyes and eyes are on the front of a head:
+#
+#   two eye blobs   facing the camera      rows 0, 1, 3, 11, 13
+#   none at all     facing away            rows 2, 4, 12, 14
+#   exactly one     in profile             rows 5-10, 15-18
+#
+# and the profile rows split by where that one eye sits within the head: on the
+# idle rows, which are a single pose and so read cleanly, row 5 has it at 0.20
+# of the head's width and row 7 at 0.80. Every frame of every profile row reads
+# exactly 0.20 or 0.80 and nothing in between, which is what splits ten rows
+# into five west and five east. Nothing is mirrored: both profile directions are
+# drawn, and the frame counts come out symmetric (2/8/9/6/8 each way), which is
+# the check on the split.
+#
+# Both numbers moved when the cell pitch was corrected from 18 to 16, and both
+# moved towards the signal: the eye position used to land off 0.20/0.80 on rows
+# whose frames carried a slice of the neighbouring sprite, and the counts used
+# to read 2/7/8/6/7 because an out-of-phase grid loses the last frame of a row
+# to the padding column.
+modes:
+  afoot:
+    label: Afoot
+    clips:
+      south:
+        idle:      {src: base, row: 0,  fps: 2}
+        walk:      {src: base, row: 1,  fps: 9}
+        run:       {src: base, row: 3,  fps: 12}
+        lead_walk: {src: base, row: 11, fps: 9}
+        lead_run:  {src: base, row: 13, fps: 12}
+      north:
+        # The one row the sheet does not carry. Five animations in four
+        # directions is twenty rows; nineteen ship, and the absentee is the
+        # north idle — an eye-blink drawn from behind would be two identical
+        # frames of the back of a head.
+        #
+        # Taken as the first frame of the north walk, which is the artist's own
+        # convention rather than an invention: facing south, where a real idle
+        # row does exist, its first frame is byte-identical to the first frame
+        # of the walk. (The two profile facings are not — they differ by 179px
+        # each — so the evidence is the camera-axis row, which is the one north
+        # is the counterpart of. Under the old 18px pitch even south read 5
+        # pixels off, which is how close a mis-cut grid can come to looking
+        # right.)
+        idle:      {src: base, row: 2,  frames: 1, fps: 1}
+        walk:      {src: base, row: 2,  fps: 9}
+        run:       {src: base, row: 4,  fps: 12}
+        lead_walk: {src: base, row: 12, fps: 9}
+        lead_run:  {src: base, row: 14, fps: 12}
+      # Which of the eight profile rows is which action does NOT follow the
+      # sheet's block order, and reading it off that order was wrong for two
+      # rows each way. It is measured off the legs: a lead animation is its
+      # own gait with the arm redrawn, so the knees-down half of lead_walk is
+      # the knees-down half of walk. Summed over a row and minimised across
+      # cyclic frame offsets, west clusters {6, 9} at 48 px and {15, 17} at
+      # 150, against 197-292 between the clusters; east is the same shape,
+      # {8, 10} at 43 and {16, 18} at 151 against 197-296.
+      #
+      # So 6/8 and 9/10 are one gait and 15/16 and 17/18 are the other, and
+      # which gait is which comes off the stride — the horizontal spread of
+      # the bottom six rows of each frame, meaned over the row:
+      #
+      #             walk 6.50   lead_walk 6.56   run 9.17   lead_run 8.88
+      #
+      # This file used to read 9/10 as run and 15/16 as lead_walk, which made
+      # a run stride exactly as far as a walk (6.56 against 6.50) and a led
+      # walk stride further than a led run (9.17 against 8.88). Both are now
+      # the right way round. Corroboration on the west rows: the rope hand
+      # trails behind the handler, and rows 9 and 17 reach their cell's back
+      # edge in 9/9 and 8/8 frames against 2/8 and 1/6 for rows 6 and 15.
+      #
+      # What the player saw was the run: it drew a led walk, so holding shift
+      # changed the speed and nothing else.
+      west:
+        idle:      {src: base, row: 5,  fps: 2}
+        walk:      {src: base, row: 6,  fps: 9}
+        run:       {src: base, row: 15, fps: 12}
+        lead_walk: {src: base, row: 9,  fps: 9}
+        lead_run:  {src: base, row: 17, fps: 12}
+      east:
+        idle:      {src: base, row: 7,  fps: 2}
+        walk:      {src: base, row: 8,  fps: 9}
+        run:       {src: base, row: 16, fps: 12}
+        lead_walk: {src: base, row: 10, fps: 9}
+        lead_run:  {src: base, row: 18, fps: 12}
+
+# `subjects:` is what full_pack.yaml calls `coats:` — the list of things a mode
+# is built for. There is one here, and it has no variants: the pack ships a
+# single unclothed base sprite and no clothing layer.
+subjects:
+  base:
+    label: Farmhand
+    files:
+      base: Character_base.png

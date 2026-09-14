@@ -13,10 +13,11 @@ description: >-
   like any other body colour.
 
   Rendering bay's geometry with bay's own palette and this override reproduces
-  socks_brown with zero mismatched pixels wherever both sheets draw — on all
-  three sheet families. That round trip is what makes applying it to another
-  body trustworthy, and it is why the classifier is palette membership rather
-  than hue: an achromatic test misclassifies 2964 genuine ink pixels on the
+  socks_brown with zero mismatched pixels wherever both sheets draw — on all six
+  sheet families, bareback and saddled alike, because a saddle changes what the
+  horse wears and not where its legs are. That round trip is what makes applying
+  it to another body trustworthy, and it is why the classifier is palette
+  membership rather than hue: an achromatic test misclassifies 2964 genuine ink pixels on the
   jump sheets, where the artist tinted the marking's dark end warm.
 
   This file is a record and a tripwire, not an input. Nothing in it is read to
@@ -85,6 +86,66 @@ sources:
     override_pixels: 40297
     ink_pixels: 38970
     reshade_pixels: 1327
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#6a6a6a'
+      - '#3b3b3b'
+      - '#223300'
+      - '#292929'
+      - '#262626'
+      - '#191919'
+      - '#151515'
+      - '#131313'
+      - '#101010'
+      - '#0a0a0a'
+      - '#090909'
+  ride_saddled:
+    base_sheet: 'Horse_fullcolor_brown_brownsaddled_riding.png'
+    base_sha256: 1f91864fc005f45dc3eb516227cd4ce9cd03e6b81fbd13ed7082a7f58864c9b3
+    marking_sheet: 'Horse_socks_brown_brownsaddled_riding.png'
+    marking_sha256: 67becb8175eab6af017ff5ad8144df6cbcb2654a952f7918780e604c200a4025
+    override_pixels: 28583
+    ink_pixels: 28186
+    reshade_pixels: 397
+    ink:
+      - '#eeeeee'
+      - '#aeaeae'
+      - '#6a6a6a'
+      - '#223300'
+      - '#292929'
+      - '#262626'
+      - '#191919'
+      - '#151515'
+      - '#131313'
+      - '#0a0a0a'
+      - '#090909'
+      - '#080808'
+      - '#040404'
+  ride_saddled_jump:
+    base_sheet: 'Horse_fullcolor_brown_brownsaddled_jump.png'
+    base_sha256: 0ba803379bfdd59ecd8cf04e2f47f475081ef292bd974f6a2e5b1d0b9e6ead95
+    marking_sheet: 'Horse_socks_brown_brownsaddled_jump.png'
+    marking_sha256: 234697c589ae862d40bcab092dc0bfa2aa76c1f4691dc26ea05f8e5d220e35fe
+    override_pixels: 11561
+    ink_pixels: 11552
+    reshade_pixels: 9
+    ink:
+      - '#eeeeee'
+      - '#808080'
+      - '#555555'
+      - '#262626'
+      - '#151515'
+      - '#150707'
+      - '#0b0404'
+  lead_saddled:
+    base_sheet: 'Horse_fullcolor_brown_leading_browsaddle.png'
+    base_sha256: 56527730c40b38b257a9a5fd3ad16344e2243f21bda9944bec5ec2c9444d47ce
+    marking_sheet: 'Horse_socks_brown_leading_brownsaddle.png'
+    marking_sha256: 45c940a78548e26808ece59f89a06ed15ddd61ff8519abfd2124ac46ca07afe0
+    override_pixels: 40269
+    ink_pixels: 38960
+    reshade_pixels: 1309
     ink:
       - '#eeeeee'
       - '#aeaeae'

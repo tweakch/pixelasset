@@ -33,7 +33,12 @@
     "mode": {
       "type": "string",
       "minLength": 1,
-      "description": "How the subject is configured \u2014 for the horse family, `ride` (with a rider) or `lead` (with a handler on a rope). Distinct from `variant`, which is the coat. Omit for an asset with only one configuration; a consumer uses its presence to tell a playable asset from a prop."
+      "description": "How the subject is configured \u2014 for the horse family, `ride` (with a rider) or `lead` (with a handler on a rope). Distinct from `variant`, which is the coat, and from `tack`, which is what the horse wears in this configuration. Omit for an asset with only one configuration; a consumer uses its presence to tell a playable asset from a prop."
+    },
+    "tack": {
+      "type": "string",
+      "minLength": 1,
+      "description": "What the subject is wearing in this configuration \u2014 for the horse family, `bareback`, `halter`, `saddled`, or `none` for a loose horse wearing nothing. A second axis beside `mode`: two assets may share a mode and differ only in tack, which is what lets a consumer offer a saddle toggle without parsing ids for a suffix. Omit it entirely for a family with no tack axis, which is not the same as `none`."
     },
     "frame_size": {
       "type": "array",
@@ -118,6 +123,11 @@
           "loop": {
             "type": "boolean"
           },
+          "next": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The clip that follows when this one finishes, by `name`. Only meaningful with `loop: false`. Some gestures are authored as two rows that meet end to end rather than one looping row \u2014 the leading sheets draw petting as a lean-in and a lean-out whose endpoints match within 16 px \u2014 and a consumer has no other way to learn that playing one of them alone is half the gesture. A chain may be a cycle (a -> b -> a)."
+          },
           "off_ground": {
             "type": "array",
             "minItems": 2,
@@ -127,6 +137,56 @@
               "minimum": 0
             },
             "description": "Inclusive [first, last] frame indices where the subject has left the ground, measured from each frame's alpha bounding box against the clip baseline. Collision therefore tracks the artwork instead of a hand-tuned timer, and stays correct when fps changes."
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "sheet",
+              "row",
+              "columns"
+            ],
+            "properties": {
+              "sheet": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Path of the sheet this clip was cut from, relative to the repository root."
+              },
+              "row": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Row of this clip in the SOURCE sheet, in that sheet's own grid."
+              },
+              "columns": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "Source column of each frame of this clip, in order \u2014 `columns[i]` is where frame `i` came from. A list rather than a first-column-plus-count because a clip's frames are not always consecutive: `skip` in a pack leaves out a source frame the artwork gets wrong, and a contract that assumed consecutiveness would then point every frame after the gap at the wrong picture."
+              },
+              "cell": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "description": "The source sheet's own cell size, which is not the asset's: ingest re-blits every frame onto one common cell."
+              },
+              "patched": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "description": "Frames of this clip whose pixels do not match the source cell named above, because a declared correction in the pack restored something the artwork draws incompletely. Present so the difference reads as reviewed rather than as the pipeline corrupting the art; a viewer showing the source beside the output should say which frames it applies to. Corrections only ever copy pixels from elsewhere in the same sheet."
+              }
+            },
+            "additionalProperties": false,
+            "description": "Where this clip came from. Provenance, not geometry \u2014 nothing needs it to draw. It exists so a defect can be reported against the artwork instead of against the packed output: a viewer showing 'frame 3 is wrong' can say which row and column of which sheet that frame actually is, which is the only form of that report a producer can act on. Omitted by producers with no single source row, such as the Path C stage graph."
           },
           "order": {
             "type": "array",

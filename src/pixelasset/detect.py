@@ -68,6 +68,95 @@ def gutter_bleed(a: np.ndarray, cw: int, ch: int) -> int:
     return total
 
 
+def blob_sizes(mask: np.ndarray, *, min_size: int = 1) -> list[int]:
+    """Sizes of the 8-connected components of a boolean mask, largest first.
+
+    A different question from `_axis_splits`, which asks whether a straight
+    empty band cuts a cell in two and is a heuristic for grid search. This is
+    exact connectivity, and on the leading sheets it measures something
+    specific: the handler and the horse are two bodies joined by a lead rope, so
+    a led frame is one component. Two components means the rope is not drawn —
+    either because the handler let go, which the petting rows do on purpose, or
+    because a frame is missing it, which one frame of the pack does by mistake.
+
+    Run-length union-find: each row becomes a handful of horizontal runs, and
+    runs in adjacent rows are joined when their columns touch or overlap by one.
+    A sprite cell holds a few hundred runs against ten thousand pixels, which is
+    what makes this cheap enough to sweep every frame of every sheet in the
+    suite — per-pixel union-find and label propagation both measured about
+    seventy times slower on the leading sheets, for the same answer.
+    """
+    m = np.ascontiguousarray(mask, dtype=bool)
+    if not m.any():
+        return []
+    h, w = m.shape
+
+    runs: list[list[tuple[int, int, int]]] = []      # per row: (start, end, id)
+    starts: list[int] = []
+    parent: list[int] = []
+    for y in range(h):
+        row = m[y]
+        if not row.any():
+            runs.append([])
+            continue
+        edges = np.flatnonzero(np.diff(np.concatenate(([0], row.view(np.int8), [0]))))
+        here = []
+        for a, b in zip(edges[0::2], edges[1::2]):
+            here.append((int(a), int(b) - 1, len(parent)))
+            starts.append(int(b) - int(a))
+            parent.append(len(parent))
+        runs.append(here)
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for y in range(1, h):
+        for a0, a1, ai in runs[y]:
+            for b0, b1, bi in runs[y - 1]:
+                if b0 > a1 + 1:
+                    break
+                if b1 + 1 >= a0:                     # 8-connected: diagonals count
+                    ra, rb = find(ai), find(bi)
+                    if ra != rb:
+                        parent[max(ra, rb)] = min(ra, rb)
+
+    counts: dict[int, int] = {}
+    for y in range(h):
+        for a0, a1, ai in runs[y]:
+            root = find(ai)
+            counts[root] = counts.get(root, 0) + (a1 - a0 + 1)
+    return sorted((n for n in counts.values() if n >= min_size), reverse=True)
+
+
+def straddling_cells(a: np.ndarray, cw: int, ch: int) -> tuple[int, int]:
+    """(cells touching both their left and right edge, occupied cells).
+
+    The phase check `gutter_bleed` cannot make. Bleed counts pixels sitting on a
+    boundary, which a correctly-cut sprite does all the time — it says nothing
+    about whether the cut is in the right place. A cell that reaches both of its
+    own side edges is different: a sprite narrower than its cell cannot do that,
+    so it means the cut lands mid-sprite and the cell holds the tail of one
+    frame beside the head of the next.
+
+    Measured on the character sheet: 0 of 132 occupied cells at the true 16px
+    pitch, 88 of 127 at an 18px one that divides the same 144px sheet.
+    """
+    h, w = a.shape
+    straddle = occupied = 0
+    for r in range(h // ch):
+        for c in range(w // cw):
+            cell = a[r * ch:(r + 1) * ch, c * cw:(c + 1) * cw] > 0
+            if not cell.any():
+                continue
+            occupied += 1
+            columns = cell.any(axis=0)
+            straddle += bool(columns[0] and columns[-1])
+    return straddle, occupied
+
+
 def _axis_splits(cell: np.ndarray, axis: int, min_share: float) -> bool:
     """True if an interior empty band cuts this cell into two substantial parts.
 
@@ -99,6 +188,68 @@ def _axis_splits(cell: np.ndarray, axis: int, min_share: float) -> bool:
             return True
         i = j
     return False
+
+
+def confirm_cell(a: np.ndarray, cell: tuple[int, int], *, source: str = "sheet",
+                 max_straddle: float = 0.1) -> tuple[int, int]:
+    """Validate a cell the config pinned, instead of searching for one.
+
+    `detect_cell` is a search with guards tuned for this pack's horse sheets,
+    and a guard that is right about horses can be wrong about something else:
+    the character sheet is 16px wide per cell and `min_side` is 24, so the true
+    grid is never even a candidate and the search reports no plausible grid at
+    all. A pin is the answer to that, and it still has to be checked — a pin
+    that does not divide the sheet, or that cuts sprites in half, is worth more
+    than a wrong grid quietly rendering at 2.4x scale.
+
+    So a pin is confirmed against what can still be measured: it divides the
+    sheet, it yields frames, no cell of it straddles a sprite, and — where the
+    free search does succeed — the pin has to agree with it. That last check is
+    what still protects the horse sheets from the 160x164 grid that renders at
+    2.4x scale.
+
+    The straddle check is here because the other three all passed an 18px pin on
+    this sheet for weeks. 144 has more than one divisor: 8 x 18 cuts the grid as
+    cleanly as 9 x 16 does, yields frames in every row, and measures the same
+    baseline of 33, because a pitch that is wrong by two pixels per column is
+    still a pitch. What it is not is *in phase* — every frame after the first
+    carried a slice of its neighbour, and the game drew a row of farmhands where
+    it wanted one walking. Divisibility is not alignment, and this is the check
+    that tells them apart.
+
+    `holds_multiple_sprites` is deliberately NOT re-applied. It is a heuristic
+    for ranking candidates the search invented, and on the character sheet it is
+    simply wrong: 35 of 152 cells "split into two substantial parts" because a
+    small character's head detaches from its body at the neck, which is one
+    sprite drawn with a gap rather than two sprites in a cell. A pin is a
+    reviewed line in config (PIPELINE.md §22), and overruling a heuristic is
+    what it is for.
+    """
+    cw, ch = cell
+    h, w = a.shape
+    if cw <= 0 or ch <= 0 or w % cw or h % ch:
+        raise ValueError(
+            f"{source}: pinned cell {cw}x{ch} does not divide a {w}x{h} sheet"
+        )
+    if not any(row_frames(a, cw, ch, r) for r in range(h // ch)):
+        raise ValueError(f"{source}: pinned cell {cw}x{ch} finds no frames")
+    straddle, occupied = straddling_cells(a, cw, ch)
+    if occupied and straddle > occupied * max_straddle:
+        raise ValueError(
+            f"{source}: pinned cell {cw}x{ch} cuts sprites — {straddle} of "
+            f"{occupied} occupied cells reach both side edges, which a frame "
+            f"narrower than its own cell cannot do. The pitch is out of phase."
+        )
+    try:
+        found = detect_cell(a)
+    except ValueError:
+        return cw, ch          # nothing to disagree with: the case pins are for
+    if found != (cw, ch):
+        raise ValueError(
+            f"{source}: config pins cell {cw}x{ch} but the artwork measures "
+            f"{found[0]}x{found[1]}"
+        )
+    return cw, ch
 
 
 def holds_multiple_sprites(

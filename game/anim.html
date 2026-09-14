@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2314180f'/%3E%3Crect x='2' y='3' width='4' height='10' fill='%23e0a13a'/%3E%3Crect x='7' y='3' width='2' height='10' fill='%237e8f6e'/%3E%3Crect x='10' y='3' width='4' height='10' fill='%23e0a13a'/%3E%3C/svg%3E">
+<title>Animation debugger — pixelasset</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #14180f; --panel: #1a2014; --line: #2e3a24; --line-hi: #46592f;
+    --ink: #b9c9a8; --ink-dim: #8fa383; --ink-hi: #f2e9c8;
+    --accent: #e0a13a; --bad: #e5675a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  a { color: var(--accent); }
+  h1 { margin: 0; font-size: 14px; letter-spacing: .18em; color: var(--ink-hi); text-transform: uppercase; }
+  h2 { margin: 0 0 8px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-dim); }
+
+  #top {
+    display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+    padding: 14px 20px; border-bottom: 1px solid var(--line); background: var(--panel);
+    position: sticky; top: 0; z-index: 5;
+  }
+  #top nav { margin-left: auto; display: flex; gap: 14px; font-size: 11px; }
+
+  #layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); align-items: start; }
+  @media (max-width: 880px) { #layout { grid-template-columns: 1fr; } }
+
+  #assets {
+    border-right: 1px solid var(--line); padding: 14px;
+    max-height: calc(100vh - 52px); overflow: auto; position: sticky; top: 52px;
+  }
+  #filter {
+    width: 100%; margin-bottom: 10px; padding: 5px 7px; background: #0f130b;
+    border: 1px solid var(--line); border-radius: 3px; color: var(--ink); font: inherit;
+  }
+  .assetgroup { margin-bottom: 14px; }
+  .assetgroup > span { display: block; color: var(--accent); font-size: 10px;
+    letter-spacing: .14em; text-transform: uppercase; margin-bottom: 4px; }
+  .assetbtn {
+    display: block; width: 100%; text-align: left; padding: 3px 6px; margin-bottom: 1px;
+    background: none; border: 1px solid transparent; border-radius: 3px;
+    color: var(--ink-dim); font: inherit; cursor: pointer;
+  }
+  .assetbtn:hover { background: #222a18; color: var(--ink); }
+  .assetbtn[aria-pressed="true"] { background: #2e3a24; border-color: var(--line-hi); color: var(--ink-hi); }
+
+  main { padding: 18px 20px 60px; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .panel { border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 14px 16px; }
+
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    padding: 2px 9px; background: #26301c; border: 1px solid var(--line);
+    border-radius: 3px; color: var(--ink-dim); font: inherit; font-size: 12px; cursor: pointer;
+  }
+  .pill:hover { color: var(--ink); }
+  .pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #1c1708; }
+  .pill.missing { color: #6a7360; text-decoration: line-through; cursor: not-allowed; }
+  .pillrow { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .pillrow > .lbl { min-width: 54px; color: var(--ink-dim); font-size: 11px; text-transform: uppercase; }
+
+  #stagewrap { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+  canvas { image-rendering: pixelated; display: block; }
+  #stage, #src { border: 1px solid var(--line); border-radius: 3px; background: #0f130b; }
+
+  .transport { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+  .transport button {
+    padding: 3px 10px; background: #26301c; border: 1px solid var(--line);
+    border-radius: 3px; color: var(--ink); font: inherit; cursor: pointer;
+  }
+  .transport button:hover { border-color: var(--line-hi); color: var(--ink-hi); }
+  .transport label { display: flex; align-items: center; gap: 5px; color: var(--ink-dim); font-size: 12px; }
+  input[type="range"] { width: 110px; }
+
+  #strip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .thumb {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 4px 4px 2px; background: #0f130b; border: 1px solid var(--line);
+    border-radius: 3px; cursor: pointer; color: var(--ink-dim); font-size: 10px;
+  }
+  .thumb:hover { border-color: var(--line-hi); }
+  .thumb[aria-pressed="true"] { border-color: var(--accent); color: var(--ink-hi); background: #241d0c; }
+  .thumb .n { font-weight: 700; }
+  .thumb .src { font-size: 9px; color: #6f7c62; }
+  .thumb .src.fixed { color: #e0a13a; }
+  .thumb[aria-pressed="true"] .src { color: var(--accent); }
+
+  #report {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    border-top: 1px solid var(--line); margin-top: 12px; padding-top: 10px;
+  }
+  #reportline {
+    flex: 1 1 320px; min-width: 0; padding: 5px 8px; background: #0f130b;
+    border: 1px solid var(--line-hi); border-radius: 3px; color: var(--ink-hi);
+    font: inherit; user-select: all;
+  }
+  #copy { padding: 4px 12px; background: var(--accent); border: 0; border-radius: 3px;
+    color: #1c1708; font: inherit; font-weight: 700; cursor: pointer; }
+
+  .meta { color: var(--ink-dim); font-size: 11px; }
+  .meta b { color: var(--ink); font-weight: 400; }
+  .warn { color: var(--bad); }
+  #srcrowwrap { overflow-x: auto; margin-top: 8px; }
+  #srcrow { border: 1px solid var(--line); border-radius: 3px; background: #0f130b; }
+  #figfacing { color: var(--accent); }
+</style>
+</head>
+<body>
+  <div id="top">
+    <h1>Animation debugger</h1>
+    <span id="summary" class="meta">loading manifest…</span>
+    <nav>
+      <a href="./index.html">pasture</a>
+      <a href="./viewer.html">asset viewer</a>
+    </nav>
+  </div>
+
+  <div id="layout">
+    <aside id="assets">
+      <h2>Assets</h2>
+      <input id="filter" type="search" placeholder="filter…" autocomplete="off">
+      <div id="assetlist"></div>
+    </aside>
+
+    <main>
+      <section class="panel">
+        <div class="pillrow"><span class="lbl">Facing</span><div id="facings" class="pills"></div></div>
+        <div class="pillrow"><span class="lbl">Clip</span><div id="clips" class="pills"></div></div>
+
+        <div id="stagewrap">
+          <div>
+            <h2>Built frame <span id="stagedims" class="meta"></span></h2>
+            <canvas id="stage"></canvas>
+          </div>
+          <div id="srcbox" hidden>
+            <h2>Source frame <span id="srcdims" class="meta"></span></h2>
+            <p class="meta" style="margin:0 0 6px;max-width:22ch">
+              The raw sheet. A frame marked ✎ was corrected on the way in, so
+              this panel shows what the pack draws and the one on the left shows
+              what shipped.
+            </p>
+            <canvas id="src"></canvas>
+          </div>
+          <div id="clipmeta" class="meta"></div>
+        </div>
+
+        <div class="transport">
+          <button id="playpause" title="space">⏸ pause</button>
+          <button id="prev" title="←">◀ step</button>
+          <button id="next" title="→">step ▶</button>
+          <label><input type="checkbox" id="onion"> onion skin</label>
+          <label><input type="checkbox" id="guides" checked> guides</label>
+          <label>speed <input type="range" id="speed" min="5" max="200" value="100"> <span id="speedval">100%</span></label>
+        </div>
+
+        <h2 style="margin-top:14px">Frames</h2>
+        <div id="strip"></div>
+
+        <div id="report">
+          <code id="reportline">—</code>
+          <button id="copy">copy</button>
+        </div>
+      </section>
+
+      <section class="panel" id="srcrowpanel" hidden>
+        <h2>Source row <span id="srcrowlabel" class="meta"></span></h2>
+        <div id="srcrowwrap"><canvas id="srcrow"></canvas></div>
+        <p class="meta" style="margin:8px 0 0">
+          The whole row this clip was cut from, in the source sheet's own grid.
+          A clip pointed at the wrong row shows up here as a strip that is not
+          the animation the pills claim.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>Figure-8 <span class="meta">— facing <b id="figfacing">—</b>, clip <b id="figclip">—</b></span></h2>
+        <canvas id="fig"></canvas>
+        <div class="transport">
+          <label><input type="checkbox" id="figpath" checked> show path</label>
+          <label>size <input type="range" id="figsize" min="50" max="240" value="150"> <span id="figsizeval">150</span></label>
+          <label>speed <input type="range" id="figspeed" min="10" max="250" value="100"> <span id="figspeedval">100%</span></label>
+          <label>anchor <input type="range" id="fignudge" min="-60" max="60" value="0"> <span id="fignudgeval">declared</span></label>
+          <button id="fignudgereset">reset anchor</button>
+        </div>
+        <p class="meta" style="margin:8px 0 0">
+          The selected clip played while the subject rides a figure-8 — two
+          counter-rotating loops, so every facing gets an equal quarter of the path
+          and both senses of turn are exercised. The facing comes from the velocity
+          through the same rule the game uses (<code>facingFrom</code> in
+          <code>sprites.js</code>), so a facing that flickers or sticks here does so
+          in the game too. A facing the asset does not draw falls back, and both
+          the fallback and the clip standing in for a missing one are named above.
+        </p>
+        <p class="meta" style="margin:8px 0 0">
+          The cross on the path is the anchor the sprite hangs from —
+          <code>anchors.points.feet</code>, which is bottom-<em>centre</em> of
+          the cell. On the leading sheets that cell holds a horse
+          <em>and</em> a handler, so its centre is neither one's feet: the pair's
+          middle rides the path and the handler orbits it. That is not a
+          debugger artefact, it is what the artwork is — the two are baked into
+          one sprite at a fixed offset that differs per facing, so no consumer
+          can move them independently. <b>anchor</b> nudges the hang point so you
+          can put the subject you are judging onto the path, and reads back the
+          anchor x that would take. It mirrors between east and west and is
+          ignored facing north and south, because that is how the offset behaves
+          in the artwork — the handler swaps sides in profile and stands on the
+          centreline from the front.
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script type="module" src="./anim.js"></script>
+</body>
+</html>
